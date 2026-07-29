@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "SchoolManage",
+    "slug": "schoolmanage-mobile-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#12233f"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "cm.schoolmanage.mobile"
+    },
+    "android": {
+      "package": "cm.schoolmanage.mobile",
+      "permissions": ["CAMERA"]
+    }
+  }
+}

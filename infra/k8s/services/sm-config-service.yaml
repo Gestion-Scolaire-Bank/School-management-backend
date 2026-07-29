@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sm-config-service
+  namespace: schoolmanage-prod
+  labels: { app: sm-config-service }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: sm-config-service }
+  template:
+    metadata:
+      labels: { app: sm-config-service }
+    spec:
+      containers:
+        - name: sm-config-service
+          image: ghcr.io/OWNER/schoolmanage-sm-config-service:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: "git" }
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sm-config-service
+  namespace: schoolmanage-prod
+spec:
+  type: ClusterIP
+  selector: { app: sm-config-service }
+  ports:
+    - port: 8080
+      targetPort: 8080

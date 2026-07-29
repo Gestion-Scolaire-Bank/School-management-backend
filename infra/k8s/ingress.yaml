@@ -1,0 +1,27 @@
+# Seul sm-gateway-service est expose publiquement (section 9.2 - "Point d'entree public").
+# Adapter le host + la classe d'ingress (nginx, traefik...) selon le cluster cible.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: schoolmanage-ingress
+  namespace: schoolmanage-prod
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.schoolmanage.example.cm
+      secretName: schoolmanage-tls
+  rules:
+    - host: api.schoolmanage.example.cm
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sm-gateway-service
+                port:
+                  number: 8888

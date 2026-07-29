@@ -1,0 +1,228 @@
+# Orchestration des 15 micro-services SchoolManage App (dev local).
+# Ordre de demarrage obligatoire (section 5.1) :
+#   sm-config-service -> sm-registry-service -> sm-gateway-service -> services metier (parallele)
+# Les "depends_on: condition: service_healthy" imposent cet ordre.
+#
+# Usage :
+#   docker compose -f docker-compose.infra.yml up -d      # 1) infra partagee
+#   docker compose up -d                                  # 2) micro-services
+name: schoolmanage-app
+
+services:
+  # ------------------------------------------------------------------
+  # S1-S3 : Micro-services non fonctionnels (infrastructure applicative)
+  # ------------------------------------------------------------------
+  sm-config-service:
+    build: ./services/sm-config-service
+    container_name: sm-config-service
+    ports: ["8080:8080"]
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+    volumes:
+      - ./config-repo:/config-repo:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [schoolmanage-net]
+
+  sm-registry-service:
+    build: ./services/sm-registry-service
+    container_name: sm-registry-service
+    ports: ["8761:8761"]
+    depends_on:
+      sm-config-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [schoolmanage-net]
+
+  sm-gateway-service:
+    build: ./services/sm-gateway-service
+    container_name: sm-gateway-service
+    ports: ["8888:8888"]
+    environment:
+      SM_AUTH_JWT_SECRET: ${SM_AUTH_JWT_SECRET}
+    depends_on:
+      sm-registry-service:
+        condition: service_healthy
+    networks: [schoolmanage-net]
+
+  # ------------------------------------------------------------------
+  # S4-S15 : Micro-services metier (demarrage en parallele une fois le
+  # socle S1-S3 disponible)
+  # ------------------------------------------------------------------
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports: ["8081:8081"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_auth_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SM_AUTH_JWT_SECRET: ${SM_AUTH_JWT_SECRET}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  registration-service:
+    build: ./services/registration-service
+    container_name: registration-service
+    ports: ["8082:8082"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_registration_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: payment-service
+    ports: ["8083:8083"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_payment_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SM_PAYMENT_MTN_API_KEY: ${SM_PAYMENT_MTN_API_KEY}
+      SM_PAYMENT_ORANGE_API_KEY: ${SM_PAYMENT_ORANGE_API_KEY}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  presence-service:
+    build: ./services/presence-service
+    container_name: presence-service
+    ports: ["8084:8084"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_presence_db
+      REDIS_HOST: redis
+      KAFKA_BROKER: kafka:9092
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: notification-service
+    ports: ["8085:8085"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_notification_db
+      KAFKA_BROKER: kafka:9092
+      SM_NOTIFICATION_SENDGRID_API_KEY: ${SM_NOTIFICATION_SENDGRID_API_KEY}
+      SM_NOTIFICATION_TWILIO_SID: ${SM_NOTIFICATION_TWILIO_SID}
+      SM_NOTIFICATION_TWILIO_TOKEN: ${SM_NOTIFICATION_TWILIO_TOKEN}
+      SM_NOTIFICATION_FCM_SERVER_KEY: ${SM_NOTIFICATION_FCM_SERVER_KEY}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  reportcard-service:
+    build: ./services/reportcard-service
+    container_name: reportcard-service
+    ports: ["8086:8086"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_reportcard_db
+      KAFKA_BROKER: kafka:9092
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  userstatus-service:
+    build: ./services/userstatus-service
+    container_name: userstatus-service
+    ports: ["8087:8087"]
+    environment:
+      REDIS_HOST: redis
+      KAFKA_BROKER: kafka:9092
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  whatsapp-service:
+    build: ./services/whatsapp-service
+    container_name: whatsapp-service
+    ports: ["8088:8088"]
+    environment:
+      MONGO_URI: ${SM_WHATSAPP_MONGO_URI}
+      KAFKA_BROKER: kafka:9092
+      SM_WHATSAPP_CLOUD_API_TOKEN: ${SM_WHATSAPP_CLOUD_API_TOKEN}
+      SM_WHATSAPP_PHONE_NUMBER_ID: ${SM_WHATSAPP_PHONE_NUMBER_ID}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  pedagogic-service:
+    build: ./services/pedagogic-service
+    container_name: pedagogic-service
+    ports: ["8089:8089"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_pedagogic_db
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  schoolid-service:
+    build: ./services/schoolid-service
+    container_name: schoolid-service
+    ports: ["8090:8090"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_schoolid_db
+      KAFKA_BROKER: kafka:9092
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  analytics-service:
+    build: ./services/analytics-service
+    container_name: analytics-service
+    ports: ["8091:8091"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_analytics_db
+      REDIS_HOST: redis
+      KAFKA_BROKER: kafka:9092
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+  admin-service:
+    build: ./services/admin-service
+    container_name: admin-service
+    ports: ["8092:8092"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_admin_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      sm-gateway-service:
+        condition: service_started
+    networks: [schoolmanage-net]
+
+networks:
+  schoolmanage-net:
+    external: true
+    name: schoolmanage-net

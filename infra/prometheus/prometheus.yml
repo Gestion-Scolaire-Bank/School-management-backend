@@ -1,0 +1,49 @@
+# Configuration Prometheus - collecte des metriques exposees par /actuator/prometheus (Java)
+# ou /metrics (Node.js / Python), cf. section 9.3 du document de conception.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "sm-gateway-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["sm-gateway-service:8888"]
+
+  - job_name: "auth-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["auth-service:8081"]
+
+  - job_name: "registration-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["registration-service:8082"]
+
+  - job_name: "payment-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["payment-service:8083"]
+
+  - job_name: "admin-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["admin-service:8092"]
+
+  - job_name: "node-services"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "presence-service:8084"
+          - "notification-service:8085"
+          - "userstatus-service:8087"
+          - "whatsapp-service:8088"
+
+  - job_name: "python-services"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "reportcard-service:8086"
+          - "pedagogic-service:8089"
+          - "schoolid-service:8090"
+          - "analytics-service:8091"

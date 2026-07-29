@@ -1,0 +1,54 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #f5f6fa;
+  color: #1a1a2e;
+}
+
+.sm-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sm-sidebar {
+  width: 220px;
+  background: #12233f;
+  color: #fff;
+  padding: 1.5rem 1rem;
+}
+
+.sm-sidebar h1 {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.sm-sidebar a {
+  display: block;
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 0.25rem;
+}
+
+.sm-sidebar a:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.sm-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+.sm-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+}

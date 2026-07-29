@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: sm-config-service
+  profiles:
+    # DEV : profil "native" -> lit les fichiers YAML locaux du dossier config-repo/ (monte en volume).
+    # PROD : remplacer par le profil "git" ci-dessous, pointant vers le depot dedie
+    #        "schoolmanage-cloud-config" (cf. document de conception section 5.1).
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: file:///config-repo
+        # git:
+        #   uri: https://github.com/${GITHUB_ORG}/schoolmanage-cloud-config
+        #   default-label: main
+        #   clone-on-start: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh
+  endpoint:
+    health:
+      show-details: always

@@ -1,0 +1,17 @@
+# Variables non sensibles partagees par tous les micro-services (section 9.2).
+# Copier en "configmap-shared.yaml" (ignore par git) et adapter avant deploiement.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: schoolmanage-shared-config
+  namespace: schoolmanage-prod
+data:
+  SM_CONFIG_SERVER_URL: "http://sm-config-service:8080"
+  SM_REGISTRY_URL: "http://sm-registry-service:8761/eureka"
+  SM_GATEWAY_URL: "http://sm-gateway-service:8888"
+  POSTGRES_HOST: "postgres.schoolmanage-prod.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  REDIS_HOST: "redis.schoolmanage-prod.svc.cluster.local"
+  REDIS_PORT: "6379"
+  KAFKA_BROKER: "kafka.schoolmanage-prod.svc.cluster.local:9092"
+  MINIO_ENDPOINT: "http://minio.schoolmanage-prod.svc.cluster.local:9000"

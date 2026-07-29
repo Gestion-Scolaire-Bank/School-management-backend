@@ -1,0 +1,11 @@
+# Configuration centralisee - analytics-service
+# Distribuee par sm-config-service (Spring Cloud Config Server, section 5.1)
+server:
+  port: 8091
+
+kafka:
+  bootstrap-servers: ${KAFKA_BROKER:kafka:9092}
+
+redis:
+  host: ${REDIS_HOST:redis}
+  port: ${REDIS_PORT:6379}

@@ -1,0 +1,16 @@
+# Configuration centralisee - admin-service
+# Distribuee par sm-config-service (Spring Cloud Config Server, section 5.1)
+server:
+  port: 8092
+
+kafka:
+  bootstrap-servers: ${KAFKA_BROKER:kafka:9092}
+
+redis:
+  host: ${REDIS_HOST:redis}
+  port: ${REDIS_PORT:6379}
+
+database:
+  name: sm_admin_db
+  host: ${POSTGRES_HOST:sm-postgres}
+  port: ${POSTGRES_PORT:5432}

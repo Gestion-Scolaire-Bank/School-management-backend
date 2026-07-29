@@ -1,0 +1,77 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: sm-gateway-service
+  config:
+    import: optional:configserver:${SM_CONFIG_SERVER_URL:http://localhost:8080}
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      # Routage declaratif vers les 12 micro-services metier (section 6.1/6.2).
+      # "lb://{service-id}" delegue le load balancing a Eureka (sm-registry-service).
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+        - id: registration-service
+          uri: lb://registration-service
+          predicates:
+            - Path=/api/v1/registrations/**
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
+        - id: presence-service
+          uri: lb://presence-service
+          predicates:
+            - Path=/api/v1/presence/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+        - id: reportcard-service
+          uri: lb://reportcard-service
+          predicates:
+            - Path=/api/v1/reports/**
+        - id: userstatus-service
+          uri: lb://userstatus-service
+          predicates:
+            - Path=/api/v1/status/**
+        - id: whatsapp-service
+          uri: lb://whatsapp-service
+          predicates:
+            - Path=/api/v1/whatsapp/**
+        - id: pedagogic-service
+          uri: lb://pedagogic-service
+          predicates:
+            - Path=/api/v1/pedagogic/**
+        - id: schoolid-service
+          uri: lb://schoolid-service
+          predicates:
+            - Path=/api/v1/school-id/**
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/v1/analytics/**
+        - id: admin-service
+          uri: lb://admin-service
+          predicates:
+            - Path=/api/v1/admin/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${SM_REGISTRY_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway

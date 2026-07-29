@@ -1,0 +1,25 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: sm-registry-service
+  config:
+    import: optional:configserver:${SM_CONFIG_SERVER_URL:http://localhost:8080}
+
+eureka:
+  client:
+    # Le registre ne s'enregistre pas lui-meme et ne recherche pas d'autres registres.
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    # Expulsion des instances inactives apres expiration du bail (90s par defaut, section 5.1).
+    eviction-interval-timer-in-ms: 90000
+  instance:
+    hostname: localhost
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

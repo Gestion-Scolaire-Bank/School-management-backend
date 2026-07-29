@@ -1,0 +1,32 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: registration-service
+  config:
+    import: optional:configserver:${SM_CONFIG_SERVER_URL:http://localhost:8080}
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/sm_registration_db
+    username: ${POSTGRES_USER:schoolmanage}
+    password: ${POSTGRES_PASSWORD:schoolmanage_dev_pwd}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${SM_REGISTRY_URL:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always

@@ -1,0 +1,146 @@
+# Infrastructure partagee (Postgres, Redis, Kafka, MinIO, MongoDB, Prometheus, Grafana).
+# Demarrage independant de l'infra, cf. section 9.1 :
+#   docker compose -f docker-compose.infra.yml up -d
+name: schoolmanage-infra
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-schoolmanage}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-schoolmanage_dev_pwd}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-schoolmanage}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [schoolmanage-net]
+
+  # Read-replica PostgreSQL (lecture seule) - cf. section 8.2 "Ports infrastructure" (port 5433)
+  # A activer en TEST/PROD via streaming replication ; en DEV, laisse commente par defaut.
+  # postgres-replica:
+  #   image: postgres:16-alpine
+  #   container_name: sm-postgres-replica
+  #   ports:
+  #     - "5433:5432"
+  #   networks: [schoolmanage-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: sm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [schoolmanage-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: sm-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks: [schoolmanage-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: sm-kafka
+    restart: unless-stopped
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks: [schoolmanage-net]
+
+  minio:
+    image: minio/minio:latest
+    container_name: sm-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-schoolmanage}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-schoolmanage_dev_pwd}
+    ports:
+      - "9000:9000" # API S3 (documents, recus, bulletins, cartes ID - cf. 8.2)
+      - "9001:9001" # Console web MinIO
+    volumes:
+      - minio_data:/data
+    networks: [schoolmanage-net]
+
+  mongo:
+    image: mongo:7
+    container_name: sm-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks: [schoolmanage-net]
+    # Utilise par whatsapp-service pour l'archivage/moderation des messages (cf. 5.2 - S11)
+
+  # Oracle (rapports d'entreprise, archives financieres pluriannuelles, vues materialisees - cf. 8.3)
+  # Image Oracle sous licence proprietaire : a fournir par l'equipe (ex: gvenzl/oracle-free) une
+  # fois les acces obtenus. Laisse commente pour ne pas bloquer le demarrage en DEV.
+  # oracle:
+  #   image: gvenzl/oracle-free:23-slim
+  #   container_name: sm-oracle
+  #   restart: unless-stopped
+  #   environment:
+  #     ORACLE_PASSWORD: schoolmanage_dev_pwd
+  #   ports:
+  #     - "1521:1521"
+  #   networks: [schoolmanage-net]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sm-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks: [schoolmanage-net]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sm-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: schoolmanage_dev_pwd
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks: [schoolmanage-net]
+
+networks:
+  schoolmanage-net:
+    name: schoolmanage-net
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
+  mongo_data:
+  grafana_data:

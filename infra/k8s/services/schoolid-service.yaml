@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: schoolid-service
+  namespace: schoolmanage-prod
+  labels: { app: schoolid-service }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: schoolid-service }
+  template:
+    metadata:
+      labels: { app: schoolid-service }
+    spec:
+      containers:
+        - name: schoolid-service
+          image: ghcr.io/OWNER/schoolmanage-schoolid-service:latest
+          ports:
+            - containerPort: 8090
+          envFrom:
+            - configMapRef: { name: schoolmanage-shared-config }
+            - secretRef: { name: schoolmanage-secrets }
+          livenessProbe:
+            httpGet: { path: /health, port: 8090 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /health, port: 8090 }
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: schoolid-service
+  namespace: schoolmanage-prod
+spec:
+  type: ClusterIP
+  selector: { app: schoolid-service }
+  ports:
+    - port: 8090
+      targetPort: 8090

@@ -1,0 +1,16 @@
+# Configuration centralisee - auth-service
+# Distribuee par sm-config-service (Spring Cloud Config Server, section 5.1)
+server:
+  port: 8081
+
+kafka:
+  bootstrap-servers: ${KAFKA_BROKER:kafka:9092}
+
+redis:
+  host: ${REDIS_HOST:redis}
+  port: ${REDIS_PORT:6379}
+
+database:
+  name: sm_auth_db
+  host: ${POSTGRES_HOST:sm-postgres}
+  port: ${POSTGRES_PORT:5432}
