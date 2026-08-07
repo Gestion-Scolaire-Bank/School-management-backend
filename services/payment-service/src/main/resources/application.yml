@@ -14,6 +14,26 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+schoolmanage:
+  gateway:
+    url: ${SM_GATEWAY_URL:http://sm-gateway-service:8888}
+  services:
+    admin:
+      base-url: ${SM_ADMIN_SERVICE_URL:http://admin-service:8092}
+  payment:
+    mtn:
+      base-url: ${SM_PAYMENT_MTN_API_URL:https://sandbox.momodeveloper.mtn.com}
+      api-key: ${SM_PAYMENT_MTN_API_KEY:changeme}
+    orange:
+      base-url: ${SM_PAYMENT_ORANGE_API_URL:https://api.orange.com/orange-money-webpay}
+      api-key: ${SM_PAYMENT_ORANGE_API_KEY:changeme}
 
 eureka:
   client:

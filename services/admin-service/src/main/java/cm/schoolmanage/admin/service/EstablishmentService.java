@@ -1,0 +1,38 @@
+package cm.schoolmanage.admin.service;
+
+import cm.schoolmanage.admin.domain.Establishment;
+import cm.schoolmanage.admin.dto.CreateEstablishmentRequest;
+import cm.schoolmanage.admin.exception.ResourceNotFoundException;
+import cm.schoolmanage.admin.repository.EstablishmentRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class EstablishmentService {
+
+    private final EstablishmentRepository establishmentRepository;
+
+    public Establishment create(CreateEstablishmentRequest request) {
+        Establishment establishment = Establishment.builder()
+                .name(request.getName())
+                .address(request.getAddress())
+                .city(request.getCity())
+                .phone(request.getPhone())
+                .email(request.getEmail())
+                .build();
+        return establishmentRepository.save(establishment);
+    }
+
+    public List<Establishment> findAll() {
+        return establishmentRepository.findAll();
+    }
+
+    public Establishment getById(UUID id) {
+        return establishmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Etablissement introuvable : " + id));
+    }
+}

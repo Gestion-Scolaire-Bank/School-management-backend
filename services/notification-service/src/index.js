@@ -4,18 +4,51 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const routes = require('./routes');
+const { ensureSchema } = require('./db/migrate');
+const { startConsumer } = require('./kafka/client');
+const { handleIncomingEvent } = require('./events/notificationEventHandler');
+const { KNOWN_TOPICS } = require('./events/eventMapper');
+const { register, metricsMiddleware } = require('./metrics');
 
 const app = express();
 app.use(helmet());
-app.use(cors());
+// Pas de frontend web tiers a ce jour : CORS refuse toute origine par defaut. Definir
+// CORS_ALLOWED_ORIGIN si un client navigateur doit un jour appeler ce service directement.
+app.use(cors(process.env.CORS_ALLOWED_ORIGIN ? { origin: process.env.CORS_ALLOWED_ORIGIN } : { origin: false }));
 app.use(morgan('dev'));
+app.use(metricsMiddleware);
 app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'UP', service: 'notification-service' }));
 
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
 app.use('/', routes);
 
 const PORT = process.env.PORT || 8085;
-app.listen(PORT, () => console.log(`notification-service demarre sur le port ${PORT}`));
+
+async function bootstrap() {
+  await ensureSchema();
+  app.listen(PORT, () => console.log(`notification-service demarre sur le port ${PORT}`));
+
+  try {
+    await startConsumer(KNOWN_TOPICS, async ({ topic, message }) => {
+      const payload = JSON.parse(message.value.toString());
+      await handleIncomingEvent(topic, payload);
+    });
+  } catch (error) {
+    console.warn(`Consumer Kafka indisponible, notification-service continue sans lui : ${error.message}`);
+  }
+}
+
+// Ne demarre le serveur (ni ne touche a la base/Kafka) que lorsque ce fichier est le point
+// d'entree du processus (evite toute connexion reseau lorsqu'il est simplement "require" par
+// les tests).
+if (require.main === module) {
+  bootstrap();
+}
 
 module.exports = app;

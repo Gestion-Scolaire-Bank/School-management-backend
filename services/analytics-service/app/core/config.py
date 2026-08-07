@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://schoolmanage:schoolmanage_dev_pwd@localhost:5432/sm_analytics_db"
     kafka_broker: str = "localhost:9092"
     redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_password: str = ""
 
 
 settings = Settings()

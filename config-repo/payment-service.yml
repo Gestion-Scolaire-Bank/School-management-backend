@@ -14,3 +14,8 @@ database:
   name: sm_payment_db
   host: ${POSTGRES_HOST:sm-postgres}
   port: ${POSTGRES_PORT:5432}
+
+schoolmanage:
+  services:
+    admin:
+      base-url: ${SM_ADMIN_SERVICE_URL:http://admin-service:8092}

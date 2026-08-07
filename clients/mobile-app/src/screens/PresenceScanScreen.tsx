@@ -2,8 +2,13 @@ import React, { useState } from "react";
 import { View, Text, Button, StyleSheet } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import apiClient from "../api/client";
+import { getCurrentUser } from "../api/auth";
 
-// UC13 - Scanner QR (check-in/out) (presence-service, section 3.4)
+// UC13 - Scanner QR (check-in/out) (presence-service, section 3.4).
+// "Scanner MA presence" = auto-pointage Enseignant : le QR scanne est celui affiche
+// dans la salle de classe et encode l'identifiant de la classe (classId). La personne
+// pointee est l'utilisateur connecte (personId/personType STAFF), pas le contenu du QR -
+// meme convention que le bouton de pointage cote web (PresencePage.jsx : personType STAFF).
 export default function PresenceScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [status, setStatus] = useState<string | null>(null);
@@ -13,11 +18,14 @@ export default function PresenceScanScreen() {
     if (scanned) return;
     setScanned(true);
     try {
-      // TODO : appeler POST /api/v1/presence/check-in (presence-service, via le Gateway)
-      await apiClient.post("/api/v1/presence/check-in", { qrCode: data });
+      await apiClient.post("/api/v1/presence/check-in", {
+        personId: getCurrentUser()?.id,
+        personType: "STAFF",
+        classId: data,
+      });
       setStatus("Presence enregistree.");
     } catch {
-      setStatus("Echec - endpoint presence-service pas encore implemente.");
+      setStatus("Echec de l'enregistrement de la presence - reessayez.");
     }
   }
 

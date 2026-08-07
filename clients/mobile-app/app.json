@@ -8,14 +8,21 @@
     "splash": {
       "backgroundColor": "#12233f"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "cm.schoolmanage.mobile"
     },
     "android": {
       "package": "cm.schoolmanage.mobile",
-      "permissions": ["CAMERA"]
-    }
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
   }
 }

@@ -3,6 +3,9 @@
 Plateforme numerique de gestion scolaire (Cameroun) - architecture micro-services.
 Projet academique. Document de conception complet : [`docs/Document_de_Conception_SchoolManage_App.pdf`](./docs/Document_de_Conception_SchoolManage_App.pdf) (v1.0) et son resume technique [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
+Pour lancer le projet en local et se connecter pour la premiere fois, voir le
+[**Guide de demarrage**](./GUIDE_DEMARRAGE.md).
+
 ## Sommaire
 
 - [Structure du depot](#structure-du-depot)

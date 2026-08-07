@@ -18,6 +18,7 @@ yarn-error.log*
 __pycache__/
 *.pyc
 .venv/
+.venv*/
 venv/
 *.egg-info/
 .pytest_cache/
@@ -40,6 +41,9 @@ venv/
 volumes/
 infra/k8s/secrets.yaml
 infra/k8s/configmap-shared.yaml
+
+# --- Sauvegardes locales (donnees sensibles - ne doivent jamais etre commitees) ---
+/backups/
 
 # --- Docs binaires générés localement ---
 docs/*.pdf.bak

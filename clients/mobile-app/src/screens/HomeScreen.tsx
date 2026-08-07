@@ -1,8 +1,14 @@
 import React from "react";
 import { View, Text, Button, StyleSheet } from "react-native";
+import { logout } from "../api/auth";
 
 // Menu principal - regroupe les cas d'utilisation Parent/Enseignant (section 2.1)
 export default function HomeScreen({ navigation }: any) {
+  async function handleLogout() {
+    await logout();
+    navigation.replace("Login");
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Bienvenue</Text>
@@ -13,6 +19,8 @@ export default function HomeScreen({ navigation }: any) {
       <Button title="Consulter le bulletin" onPress={() => navigation.navigate("ReportCard")} />
       <View style={styles.spacer} />
       <Button title="Notifications" onPress={() => navigation.navigate("Notifications")} />
+      <View style={styles.spacer} />
+      <Button title="Se deconnecter" color="crimson" onPress={handleLogout} />
     </View>
   );
 }

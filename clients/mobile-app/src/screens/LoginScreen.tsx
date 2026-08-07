@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, StyleSheet } from "react-native";
-import apiClient, { setAuthToken } from "../api/client";
+import apiClient from "../api/client";
+import { login } from "../api/auth";
 
 // UC2 - Se connecter (document de conception, section 3.1)
 export default function LoginScreen({ navigation }: any) {
@@ -11,12 +12,11 @@ export default function LoginScreen({ navigation }: any) {
   async function handleLogin() {
     setError(null);
     try {
-      // TODO : appeler POST /api/auth/login (auth-service, via le Gateway) une fois implemente
       const { data } = await apiClient.post("/api/auth/login", { email, password });
-      setAuthToken(data.accessToken);
+      await login(data.accessToken);
       navigation.replace("Home");
     } catch (e) {
-      setError("Authentification impossible - endpoint pas encore implemente ?");
+      setError("Authentification impossible - verifiez vos identifiants.");
     }
   }
 

@@ -11,57 +11,85 @@ spring:
       discovery:
         locator:
           enabled: true
+      # CORS pour le frontend web (clients/web-dashboard, cf. section 1.4) : le JWT circule
+      # via l'en-tete Authorization (pas de cookie), allowCredentials reste donc a false.
+      globalcors:
+        cors-configurations:
+          "[/**]":
+            allowedOrigins:
+              - ${SM_GATEWAY_CORS_ALLOWED_ORIGIN:http://localhost:5173}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: false
       # Routage declaratif vers les 12 micro-services metier (section 6.1/6.2).
-      # "lb://{service-id}" delegue le load balancing a Eureka (sm-registry-service).
+      # URI statique "http://{nom-du-service-docker-compose}:{port}" plutot que "lb://{service}"
+      # (Eureka) : seuls les 5 services Java (auth/registration/payment/admin + ce Gateway)
+      # embarquent un client Eureka (spring-cloud-starter-netflix-eureka-client) ; les 8 services
+      # Node.js/Python n'en ont jamais eu (aucune librairie de decouverte Eureka dans leurs
+      # dependances). Le routage "lb://" ne pourrait donc jamais fonctionner pour eux - la
+      # resolution DNS interne de Docker Compose (nom du service = nom d'hote) est fiable pour
+      # les 12 et ne depend pas de l'enregistrement Eureka.
       routes:
         - id: auth-service
-          uri: lb://auth-service
+          uri: http://auth-service:8081
           predicates:
             - Path=/api/auth/**
         - id: registration-service
-          uri: lb://registration-service
+          uri: http://registration-service:8082
           predicates:
             - Path=/api/v1/registrations/**
         - id: payment-service
-          uri: lb://payment-service
+          uri: http://payment-service:8083
           predicates:
             - Path=/api/v1/payments/**
         - id: presence-service
-          uri: lb://presence-service
+          uri: http://presence-service:8084
           predicates:
             - Path=/api/v1/presence/**
         - id: notification-service
-          uri: lb://notification-service
+          uri: http://notification-service:8085
           predicates:
             - Path=/api/v1/notifications/**
         - id: reportcard-service
-          uri: lb://reportcard-service
+          uri: http://reportcard-service:8086
           predicates:
             - Path=/api/v1/reports/**
         - id: userstatus-service
-          uri: lb://userstatus-service
+          uri: http://userstatus-service:8087
           predicates:
             - Path=/api/v1/status/**
         - id: whatsapp-service
-          uri: lb://whatsapp-service
+          uri: http://whatsapp-service:8088
           predicates:
             - Path=/api/v1/whatsapp/**
         - id: pedagogic-service
-          uri: lb://pedagogic-service
+          uri: http://pedagogic-service:8089
           predicates:
             - Path=/api/v1/pedagogic/**
         - id: schoolid-service
-          uri: lb://schoolid-service
+          uri: http://schoolid-service:8090
           predicates:
             - Path=/api/v1/school-id/**
         - id: analytics-service
-          uri: lb://analytics-service
+          uri: http://analytics-service:8091
           predicates:
             - Path=/api/v1/analytics/**
         - id: admin-service
-          uri: lb://admin-service
+          uri: http://admin-service:8092
           predicates:
             - Path=/api/v1/admin/**
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 eureka:
   client:
@@ -70,8 +98,193 @@ eureka:
   instance:
     prefer-ip-address: true
 
+# RBAC (section 6.3 / 11.2 du document de conception). Regles issues des tableaux "Roles
+# autorises" documentes dans chaque README de service metier. Une route sans regle explicite
+# ci-dessous reste accessible a tout utilisateur authentifie (JWT valide, non revoque) - c'est
+# le cas notamment des roles non couverts par le RBAC a 4 roles (Eleve, Staff, Systeme interne,
+# "Tous acteurs", "Utilisateur"), qui ne figurent pas dans schoolmanage.security.roles.
+schoolmanage:
+  security:
+    jwt:
+      secret: ${SM_AUTH_JWT_SECRET:change-me-in-prod-please}
+    public-routes:
+      # /api/auth/register n'est PAS public : voir rbac-rules ci-dessous (Administrateur
+      # uniquement). Un utilisateur ne peut jamais s'auto-inscrire dans une appli scolaire -
+      # PARENT/ENSEIGNANT/DIRECTEUR sont tous crees par un Administrateur via Inscriptions
+      # (registration-service, qui appelle auth-service directement sur le reseau Docker
+      # interne, en dehors du Gateway - cette regle ne concerne que les appels externes).
+      - method: POST
+        path: /api/auth/login
+      # Un utilisateur qui a oublie son mot de passe n'est par definition pas connecte -
+      # ces deux routes ne peuvent pas exiger de JWT (cf. point n.7 - recuperation de mot
+      # de passe).
+      - method: POST
+        path: /api/auth/password-reset/request
+      - method: POST
+        path: /api/auth/password-reset/confirm
+      - method: POST
+        path: /api/v1/payments/webhook/mtn
+      - method: POST
+        path: /api/v1/payments/webhook/orange
+    rbac-rules:
+      # auth-service
+      # Faille corrigee : /api/auth/register etait dans public-routes (aucun JWT requis),
+      # donc n'importe qui pouvait s'auto-creer un compte ADMINISTRATEUR sans authentification
+      # (verifie en direct : curl sans token -> 201 avec role ADMINISTRATEUR). Desormais reserve
+      # a un Administrateur deja authentifie - la creation de compte reste geree par
+      # registration-service (Inscriptions), qui appelle auth-service en direct sur le reseau
+      # Docker interne et n'est donc pas affecte par cette regle.
+      - method: POST
+        path: /api/auth/register
+        roles: [ADMINISTRATEUR]
+      - method: GET
+        path: /api/auth/users
+        roles: [ADMINISTRATEUR]
+      - method: PATCH
+        path: /api/auth/users/*/status
+        roles: [ADMINISTRATEUR]
+      # admin-service (Admin Systeme sur les 3 endpoints historiques : etablissements, statut
+      # de compte, configuration globale)
+      - path: /api/v1/admin/**
+        roles: [ADMINISTRATEUR]
+      # admin-service - donnees de reference (classes/matieres/affectations/tarifs) : regles
+      # plus permissives que le joker ci-dessus, elles s'additionnent (Set d'union dans
+      # JwtAuthenticationFilter#isRoleAllowed) - sans elles, Directeur/Enseignant/Parent
+      # recoivent un 403 malgre l'autorisation documentee sur chaque endpoint d'AdminController.
+      - method: GET
+        path: /api/v1/admin/classes
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT, PARENT]
+      - method: POST
+        path: /api/v1/admin/classes
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/admin/subjects
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT]
+      - method: POST
+        path: /api/v1/admin/subjects
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/admin/classes/*/subjects
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT]
+      - method: POST
+        path: /api/v1/admin/classes/*/subjects
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/admin/teacher-assignments
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT]
+      - method: POST
+        path: /api/v1/admin/teacher-assignments
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/admin/fee-schedules
+        roles: [ADMINISTRATEUR, DIRECTEUR, PARENT]
+      - method: POST
+        path: /api/v1/admin/fee-schedules
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      # GET etablissements : Directeur/Enseignant en ont besoin pour afficher le nom de
+      # l'etablissement dans les libelles de classe (ClassesPage), Parent pour choisir
+      # l'etablissement de son enfant avant de consulter les tarifs (FeePaymentPage).
+      - method: GET
+        path: /api/v1/admin/establishments
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT, PARENT]
+      # registration-service (Admin sur les 4 endpoints)
+      - path: /api/v1/registrations/**
+        roles: [ADMINISTRATEUR]
+      # /children : regle additive, un parent doit pouvoir lister ses propres enfants
+      # (l'email vient du JWT propage par le Gateway, pas d'un parametre - cf. point n.6).
+      - method: GET
+        path: /api/v1/registrations/children
+        roles: [ADMINISTRATEUR, PARENT]
+      # /class/{id} : regle additive, un enseignant doit pouvoir choisir un eleve par nom dans
+      # sa classe pour saisir une note, au lieu de taper un UUID a la main (GradesPage.jsx).
+      - method: GET
+        path: /api/v1/registrations/class/**
+        roles: [ADMINISTRATEUR, ENSEIGNANT]
+      # pedagogic-service (Enseignant sur les 3 endpoints)
+      - path: /api/v1/pedagogic/**
+        roles: [ENSEIGNANT]
+      # payment-service
+      # ADMINISTRATEUR ajoute (regle additive) : un paiement en especes recu en personne au
+      # secretariat est enregistre par l'Administrateur, pas auto-declare par le parent (cf.
+      # PaymentProvider.CASH - point de coherence "paiement en especes").
+      - method: POST
+        path: /api/v1/payments/fees
+        roles: [PARENT, ADMINISTRATEUR]
+      - method: POST
+        path: /api/v1/payments/salary
+        roles: [ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/payments/*/status
+        roles: [PARENT, ADMINISTRATEUR]
+      # ADMINISTRATEUR ajoute : imprimer/remettre le recu tout de suite apres avoir enregistre
+      # un paiement en especes (cf. regle POST /api/v1/payments/fees ci-dessus).
+      - method: GET
+        path: /api/v1/payments/*/receipt
+        roles: [PARENT, ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/payments/student/*
+        roles: [PARENT, ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/payments/reports/revenue
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      # presence-service
+      - method: GET
+        path: /api/v1/presence/class/*
+        roles: [ENSEIGNANT, ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/presence/student/*
+        roles: [PARENT, ADMINISTRATEUR]
+      # notification-service
+      - method: GET
+        path: /api/v1/notifications/logs
+        roles: [ADMINISTRATEUR]
+      - method: PATCH
+        path: /api/v1/notifications/*/retry
+        roles: [ADMINISTRATEUR]
+      # reportcard-service
+      - method: POST
+        path: /api/v1/reports/grades
+        roles: [ENSEIGNANT]
+      - method: POST
+        path: /api/v1/reports/generate
+        roles: [ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/reports/class/*/summary
+        roles: [ENSEIGNANT, ADMINISTRATEUR]
+      # userstatus-service
+      - method: GET
+        path: /api/v1/status/history/*
+        roles: [ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/status/live
+        roles: [ADMINISTRATEUR]
+      # whatsapp-service
+      - method: POST
+        path: /api/v1/whatsapp/broadcast
+        roles: [ENSEIGNANT, ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/whatsapp/groups/*
+        roles: [ENSEIGNANT]
+      # schoolid-service
+      - method: POST
+        path: /api/v1/school-id/*/reissue
+        roles: [ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/school-id/*
+        roles: [PARENT, ADMINISTRATEUR]
+      # analytics-service
+      - method: GET
+        path: /api/v1/analytics/dashboard
+        roles: [DIRECTEUR, ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/analytics/global
+        roles: [ADMINISTRATEUR]
+      - method: GET
+        path: /api/v1/analytics/export
+        roles: [ADMINISTRATEUR]
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        include: health,info,gateway,prometheus

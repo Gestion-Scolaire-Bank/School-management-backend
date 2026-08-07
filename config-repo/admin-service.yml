@@ -14,3 +14,13 @@ database:
   name: sm_admin_db
   host: ${POSTGRES_HOST:sm-postgres}
   port: ${POSTGRES_PORT:5432}
+
+schoolmanage:
+  services:
+    auth:
+      base-url: ${SM_AUTH_SERVICE_URL:http://auth-service:8081}
+  kafka:
+    topic:
+      class-created: sm.admin.class.created
+      teacher-assignment-created: sm.admin.teacher_assignment.created
+      fee-schedule-created: sm.admin.fee_schedule.created

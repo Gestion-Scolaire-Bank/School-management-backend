@@ -14,3 +14,17 @@ database:
   name: sm_auth_db
   host: ${POSTGRES_HOST:sm-postgres}
   port: ${POSTGRES_PORT:5432}
+
+schoolmanage:
+  security:
+    jwt:
+      secret: ${SM_AUTH_JWT_SECRET:change-me-in-prod-please}
+      access-ttl-minutes: ${SM_AUTH_ACCESS_TTL_MIN:15}
+      refresh-ttl-days: ${SM_AUTH_REFRESH_TTL_DAYS:7}
+  kafka:
+    topic:
+      user-registered: sm.auth.user.registered
+      user-created: sm.auth.user.created
+      password-reset-requested: sm.auth.password.reset.requested
+  frontend:
+    base-url: ${SM_FRONTEND_BASE_URL:http://localhost:5173}

@@ -14,6 +14,25 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
+    producer:
+      properties:
+        # Echoue rapidement si Kafka est injoignable au lieu de bloquer la requete HTTP
+        # jusqu'a 60s (valeur par defaut du client) - cf. incident constate en verifiant
+        # l'implementation : une premiere publication vers un nouveau topic bloquait le
+        # thread de la requete le temps de la resolution des metadonnees.
+        max.block.ms: 3000
+
+schoolmanage:
+  services:
+    auth:
+      base-url: ${SM_AUTH_SERVICE_URL:http://auth-service:8081}
+  kafka:
+    topic:
+      class-created: sm.admin.class.created
+      teacher-assignment-created: sm.admin.teacher_assignment.created
+      fee-schedule-created: sm.admin.fee_schedule.created
 
 eureka:
   client:

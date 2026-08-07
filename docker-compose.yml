@@ -3,6 +3,12 @@
 #   sm-config-service -> sm-registry-service -> sm-gateway-service -> services metier (parallele)
 # Les "depends_on: condition: service_healthy" imposent cet ordre.
 #
+# Securite (cf. revue de securite) : seuls sm-gateway-service (point d'entree unique, JWT + RBAC)
+# et sm-registry-service (dashboard Eureka, lecture seule) publient un port hote. Tous les autres
+# services ne sont joignables que depuis le reseau Docker interne schoolmanage-net - un service
+# metier qui publierait son port permettrait de contourner entierement l'authentification du
+# Gateway (verifie en conditions reelles : cf. section 8.4 du document de conception).
+#
 # Usage :
 #   docker compose -f docker-compose.infra.yml up -d      # 1) infra partagee
 #   docker compose up -d                                  # 2) micro-services
@@ -15,7 +21,7 @@ services:
   sm-config-service:
     build: ./services/sm-config-service
     container_name: sm-config-service
-    ports: ["8080:8080"]
+    restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: native
     volumes:
@@ -30,6 +36,7 @@ services:
   sm-registry-service:
     build: ./services/sm-registry-service
     container_name: sm-registry-service
+    restart: unless-stopped
     ports: ["8761:8761"]
     depends_on:
       sm-config-service:
@@ -44,9 +51,15 @@ services:
   sm-gateway-service:
     build: ./services/sm-gateway-service
     container_name: sm-gateway-service
+    restart: unless-stopped
     ports: ["8888:8888"]
     environment:
       SM_AUTH_JWT_SECRET: ${SM_AUTH_JWT_SECRET}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SM_CONFIG_SERVER_URL: http://sm-config-service:8080
+      SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
+      SM_GATEWAY_CORS_ALLOWED_ORIGIN: ${SM_GATEWAY_CORS_ALLOWED_ORIGIN:-http://localhost:5173}
     depends_on:
       sm-registry-service:
         condition: service_healthy
@@ -59,14 +72,17 @@ services:
   auth-service:
     build: ./services/auth-service
     container_name: auth-service
-    ports: ["8081:8081"]
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_auth_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SM_AUTH_JWT_SECRET: ${SM_AUTH_JWT_SECRET}
+      SM_CONFIG_SERVER_URL: http://sm-config-service:8080
+      SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -75,13 +91,17 @@ services:
   registration-service:
     build: ./services/registration-service
     container_name: registration-service
-    ports: ["8082:8082"]
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_registration_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      SM_CONFIG_SERVER_URL: http://sm-config-service:8080
+      SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -90,15 +110,20 @@ services:
   payment-service:
     build: ./services/payment-service
     container_name: payment-service
-    ports: ["8083:8083"]
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_payment_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SM_PAYMENT_MTN_API_KEY: ${SM_PAYMENT_MTN_API_KEY}
+      SM_PAYMENT_MTN_API_URL: ${SM_PAYMENT_MTN_API_URL:-https://sandbox.momodeveloper.mtn.com}
       SM_PAYMENT_ORANGE_API_KEY: ${SM_PAYMENT_ORANGE_API_KEY}
+      SM_PAYMENT_ORANGE_API_URL: ${SM_PAYMENT_ORANGE_API_URL:-https://api.orange.com/orange-money-webpay}
+      SM_CONFIG_SERVER_URL: http://sm-config-service:8080
+      SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -107,11 +132,13 @@ services:
   presence-service:
     build: ./services/presence-service
     container_name: presence-service
-    ports: ["8084:8084"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_presence_db
       REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       KAFKA_BROKER: kafka:9092
+      ADMIN_SERVICE_URL: http://admin-service:8092
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -120,14 +147,18 @@ services:
   notification-service:
     build: ./services/notification-service
     container_name: notification-service
-    ports: ["8085:8085"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_notification_db
       KAFKA_BROKER: kafka:9092
       SM_NOTIFICATION_SENDGRID_API_KEY: ${SM_NOTIFICATION_SENDGRID_API_KEY}
+      SM_NOTIFICATION_SENDGRID_FROM_EMAIL: ${SM_NOTIFICATION_SENDGRID_FROM_EMAIL:-no-reply@schoolmanage.example.cm}
       SM_NOTIFICATION_TWILIO_SID: ${SM_NOTIFICATION_TWILIO_SID}
       SM_NOTIFICATION_TWILIO_TOKEN: ${SM_NOTIFICATION_TWILIO_TOKEN}
+      SM_NOTIFICATION_TWILIO_FROM_NUMBER: ${SM_NOTIFICATION_TWILIO_FROM_NUMBER}
       SM_NOTIFICATION_FCM_SERVER_KEY: ${SM_NOTIFICATION_FCM_SERVER_KEY}
+      REGISTRATION_SERVICE_URL: http://registration-service:8082
+      AUTH_SERVICE_URL: http://auth-service:8081
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -136,11 +167,15 @@ services:
   reportcard-service:
     build: ./services/reportcard-service
     container_name: reportcard-service
-    ports: ["8086:8086"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_reportcard_db
       KAFKA_BROKER: kafka:9092
       MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      ADMIN_SERVICE_URL: http://admin-service:8092
+      REGISTRATION_SERVICE_URL: http://registration-service:8082
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -149,9 +184,10 @@ services:
   userstatus-service:
     build: ./services/userstatus-service
     container_name: userstatus-service
-    ports: ["8087:8087"]
+    restart: unless-stopped
     environment:
       REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       KAFKA_BROKER: kafka:9092
     depends_on:
       sm-gateway-service:
@@ -161,12 +197,13 @@ services:
   whatsapp-service:
     build: ./services/whatsapp-service
     container_name: whatsapp-service
-    ports: ["8088:8088"]
+    restart: unless-stopped
     environment:
       MONGO_URI: ${SM_WHATSAPP_MONGO_URI}
       KAFKA_BROKER: kafka:9092
       SM_WHATSAPP_CLOUD_API_TOKEN: ${SM_WHATSAPP_CLOUD_API_TOKEN}
       SM_WHATSAPP_PHONE_NUMBER_ID: ${SM_WHATSAPP_PHONE_NUMBER_ID}
+      ADMIN_SERVICE_URL: http://admin-service:8092
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -175,10 +212,13 @@ services:
   pedagogic-service:
     build: ./services/pedagogic-service
     container_name: pedagogic-service
-    ports: ["8089:8089"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_pedagogic_db
       MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      ADMIN_SERVICE_URL: http://admin-service:8092
     depends_on:
       sm-gateway-service:
         condition: service_started
@@ -187,7 +227,7 @@ services:
   schoolid-service:
     build: ./services/schoolid-service
     container_name: schoolid-service
-    ports: ["8090:8090"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_schoolid_db
       KAFKA_BROKER: kafka:9092
@@ -199,10 +239,11 @@ services:
   analytics-service:
     build: ./services/analytics-service
     container_name: analytics-service
-    ports: ["8091:8091"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_analytics_db
       REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       KAFKA_BROKER: kafka:9092
     depends_on:
       sm-gateway-service:
@@ -212,11 +253,14 @@ services:
   admin-service:
     build: ./services/admin-service
     container_name: admin-service
-    ports: ["8092:8092"]
+    restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_admin_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SM_CONFIG_SERVER_URL: http://sm-config-service:8080
+      SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
         condition: service_started

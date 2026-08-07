@@ -14,6 +14,27 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER:localhost:9092}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+schoolmanage:
+  services:
+    auth:
+      base-url: ${SM_AUTH_SERVICE_URL:http://auth-service:8081}
+    admin:
+      base-url: ${SM_ADMIN_SERVICE_URL:http://admin-service:8092}
+  storage:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:schoolmanage}
+    secret-key: ${MINIO_SECRET_KEY:schoolmanage_dev_pwd}
+    bucket: sm-registration-dev
+  kafka:
+    topic:
+      student-enrolled: sm.registration.student.enrolled
 
 eureka:
   client:
