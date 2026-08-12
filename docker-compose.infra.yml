@@ -87,7 +87,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-schoolmanage}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-schoolmanage_dev_pwd}
     ports:
-      - "9000:9000" # API S3 (documents, recus, bulletins, cartes ID - cf. 8.2)
+      - "9005:9000" # API S3 (documents, recus, bulletins, cartes ID - cf. 8.2)
       - "9001:9001" # Console web MinIO
     volumes:
       - minio_data:/data
