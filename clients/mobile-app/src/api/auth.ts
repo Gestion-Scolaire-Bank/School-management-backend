@@ -1,12 +1,35 @@
-import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 import { setAuthToken } from "./client";
 
 type CurrentUser = { id: string; email: string; role: string };
 
-// expo-secure-store chiffre la valeur (Keystore Android / Keychain iOS), contrairement a
-// AsyncStorage qui stocke en clair - important pour un token d'acces reel. Limite : 2048
-// octets par valeur sur Android, largement suffisant pour le JWT actuel (peu de claims).
 const TOKEN_KEY = "sm_access_token";
+
+async function storeToken(token: string) {
+  if (Platform.OS === "web") {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    const SecureStore = require("expo-secure-store");
+    await SecureStore.setItemAsync(TOKEN_KEY, token);
+  }
+}
+
+async function removeToken() {
+  if (Platform.OS === "web") {
+    localStorage.removeItem(TOKEN_KEY);
+  } else {
+    const SecureStore = require("expo-secure-store");
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+  }
+}
+
+async function readToken(): Promise<string | null> {
+  if (Platform.OS === "web") {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+  const SecureStore = require("expo-secure-store");
+  return SecureStore.getItemAsync(TOKEN_KEY);
+}
 
 let currentUser: CurrentUser | null = null;
 
@@ -46,13 +69,13 @@ function decodeToken(token: string): CurrentUser | null {
 export async function login(accessToken: string) {
   setAuthToken(accessToken);
   currentUser = decodeToken(accessToken);
-  await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+  await storeToken(accessToken);
 }
 
 export async function logout() {
   setAuthToken(null);
   currentUser = null;
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await removeToken();
 }
 
 export function getCurrentUser(): CurrentUser | null {
@@ -63,12 +86,12 @@ export function getCurrentUser(): CurrentUser | null {
 // du token persiste. Retourne l'utilisateur si un token valide est trouve, sinon null (et
 // nettoie le stockage si le token est corrompu/illisible).
 export async function restoreSession(): Promise<CurrentUser | null> {
-  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const token = await readToken();
   if (!token) return null;
 
   const user = decodeToken(token);
   if (!user) {
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
+    await removeToken();
     return null;
   }
 

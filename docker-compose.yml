@@ -59,7 +59,7 @@ services:
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
       SM_CONFIG_SERVER_URL: http://sm-config-service:8080
       SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
-      SM_GATEWAY_CORS_ALLOWED_ORIGIN: ${SM_GATEWAY_CORS_ALLOWED_ORIGIN:-http://localhost:5174}
+      SM_GATEWAY_CORS_ALLOWED_ORIGIN: ${SM_GATEWAY_CORS_ALLOWED_ORIGIN:-http://localhost:5173,http://localhost:5174,http://localhost:19006}
     depends_on:
       sm-registry-service:
         condition: service_healthy
