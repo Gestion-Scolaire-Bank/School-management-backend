@@ -10,6 +10,8 @@ import PresenceScanScreen from "./src/screens/PresenceScanScreen";
 import PaymentScreen from "./src/screens/PaymentScreen";
 import ReportCardScreen from "./src/screens/ReportCardScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
+import SchoolIdManagementScreen from "./src/screens/SchoolIdManagementScreen";
+import DesignSampleScreen from "./src/screens/DesignSampleScreen";
 import { restoreSession } from "./src/api/auth";
 
 const Stack = createNativeStackNavigator();
@@ -53,6 +55,16 @@ export default function App() {
           name="Notifications"
           component={NotificationsScreen}
           options={{ title: "Notifications" }}
+        />
+        <Stack.Screen
+          name="SchoolIdManagement"
+          component={SchoolIdManagementScreen}
+          options={{ title: "Cartes Scolaires" }}
+        />
+        <Stack.Screen
+          name="DesignSample"
+          component={DesignSampleScreen}
+          options={{ title: "Modèles de Cartes" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

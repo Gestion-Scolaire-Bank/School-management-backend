@@ -18,6 +18,8 @@ import {
   Radio,
   Sun,
   Moon,
+  Palette,
+  CreditCard,
 } from "lucide-react";
 import { clearToken, getUser } from "@/api/auth";
 import { cn } from "@/lib/utils";
@@ -42,6 +44,8 @@ const NAV_ITEMS = [
   { to: "/status", label: "Statuts & disponibilite", icon: Radio },
   { to: "/child", label: "Suivi de l'enfant", icon: Users },
   { to: "/fees", label: "Paiement des frais", icon: Smartphone },
+  { to: "/design-samples", label: "Modeles de Cartes", icon: Palette },
+  { to: "/school-ids", label: "Cartes Scolaires", icon: CreditCard },
 ];
 
 const ROLE_LABELS = {

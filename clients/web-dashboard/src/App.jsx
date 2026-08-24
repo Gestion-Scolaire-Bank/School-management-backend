@@ -20,6 +20,8 @@ import ClassesPage from "./pages/ClassesPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import StatusPage from "./pages/StatusPage.jsx";
+import DesignSamplePage from "./pages/DesignSamplePage.jsx";
+import SchoolIdManagementPage from "./pages/SchoolIdManagementPage.jsx";
 
 export default function App() {
   return (
@@ -45,6 +47,8 @@ export default function App() {
               <Route path="/resources" element={<ResourcesPage />} />
               <Route path="/announcements" element={<AnnouncementsPage />} />
               <Route path="/child" element={<ChildPage />} />
+              <Route path="/design-samples" element={<DesignSamplePage />} />
+              <Route path="/school-ids" element={<SchoolIdManagementPage />} />
             </Route>
           </Route>
         </Route>

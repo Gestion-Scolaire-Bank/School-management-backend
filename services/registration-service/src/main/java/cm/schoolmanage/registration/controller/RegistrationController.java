@@ -4,6 +4,7 @@ import cm.schoolmanage.registration.dto.AssignClassRequest;
 import cm.schoolmanage.registration.dto.RegisterStaffRequest;
 import cm.schoolmanage.registration.dto.RegisterStudentRequest;
 import cm.schoolmanage.registration.dto.RegistrationResponse;
+import cm.schoolmanage.registration.dto.UpdateStudentInfoRequest;
 import cm.schoolmanage.registration.service.RegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +18,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -89,6 +92,26 @@ public class RegistrationController {
     public ResponseEntity<RegistrationResponse> affecterModifierLaClasse(
             @PathVariable UUID id, @Valid @RequestBody AssignClassRequest request) {
         var registration = registrationService.assignClass(id, request);
+        return ResponseEntity.ok(RegistrationResponse.from(registration));
+    }
+
+    /**
+     * Roles autorises : Admin
+     */
+    @PatchMapping(value = "/api/v1/registrations/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RegistrationResponse> mettreAJourLaPhoto(
+            @PathVariable UUID id, @RequestParam("photo") MultipartFile photo) {
+        var registration = registrationService.updatePhoto(id, photo);
+        return ResponseEntity.ok(RegistrationResponse.from(registration));
+    }
+
+    /**
+     * Roles autorises : Admin
+     */
+    @PatchMapping("/api/v1/registrations/{id}/info")
+    public ResponseEntity<RegistrationResponse> modifierInfosEleve(
+            @PathVariable UUID id, @Valid @RequestBody UpdateStudentInfoRequest request) {
+        var registration = registrationService.updateStudentInfo(id, request);
         return ResponseEntity.ok(RegistrationResponse.from(registration));
     }
 }

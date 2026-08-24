@@ -6,6 +6,7 @@ import cm.schoolmanage.registration.domain.RegistrationType;
 import cm.schoolmanage.registration.dto.AssignClassRequest;
 import cm.schoolmanage.registration.dto.RegisterStaffRequest;
 import cm.schoolmanage.registration.dto.RegisterStudentRequest;
+import cm.schoolmanage.registration.dto.UpdateStudentInfoRequest;
 import cm.schoolmanage.registration.dto.SchoolClassReference;
 import cm.schoolmanage.registration.exception.RegistrationNotFoundException;
 import cm.schoolmanage.registration.repository.GuardianRepository;
@@ -192,5 +193,48 @@ public class RegistrationService {
         if (file != null && !file.isEmpty()) {
             documents.put(type, documentStorageService.upload(file, type));
         }
+    }
+
+    public Registration updatePhoto(UUID id, MultipartFile photo) {
+        Registration registration = get(id);
+        if (registration.getType() != RegistrationType.STUDENT) {
+            throw new IllegalArgumentException("La mise a jour de photo ne s'applique qu'aux eleves");
+        }
+        if (photo != null && !photo.isEmpty()) {
+            registration.getDocuments().put("photo", documentStorageService.upload(photo, "photo"));
+            registration = registrationRepository.save(registration);
+            attachGuardians(registration);
+        }
+        return registration;
+    }
+
+    public Registration updateStudentInfo(UUID id, UpdateStudentInfoRequest request) {
+        Registration registration = get(id);
+        if (registration.getType() != RegistrationType.STUDENT) {
+            throw new IllegalArgumentException("La modification d'informations ne s'applique qu'aux eleves");
+        }
+        registration.setFirstName(request.getFirstName());
+        registration.setLastName(request.getLastName());
+        registration.setDateOfBirth(request.getDateOfBirth());
+        registration = registrationRepository.save(registration);
+
+        List<Guardian> guardians = guardianRepository.findByRegistrationId(id);
+        if (!guardians.isEmpty()) {
+            Guardian primary = guardians.get(0);
+            primary.setFullName(request.getGuardianName());
+            primary.setEmail(request.getParentEmail());
+            primary.setPhone(request.getParentPhone());
+            guardianRepository.save(primary);
+        } else {
+            guardianRepository.save(Guardian.builder()
+                    .registrationId(id)
+                    .fullName(request.getGuardianName())
+                    .email(request.getParentEmail())
+                    .phone(request.getParentPhone())
+                    .build());
+        }
+
+        attachGuardians(registration);
+        return registration;
     }
 }

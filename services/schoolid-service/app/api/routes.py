@@ -53,6 +53,11 @@ def _generate_card(
         date_of_birth=payload.date_of_birth,
         expires_at=expires_at,
         qr_payload=qr_payload,
+        school_name=payload.school_name,
+        accent_color=payload.accent_color,
+        background_color=payload.background_color,
+        logo_url=payload.logo_url,
+        photo_url=payload.photo_url,
     )
 
     card = SchoolIdCard(

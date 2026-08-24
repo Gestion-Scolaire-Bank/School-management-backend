@@ -10,6 +10,10 @@ class GenerateCardRequest(BaseModel):
     class_name: Optional[str] = Field(default=None, max_length=50)
     date_of_birth: Optional[date] = None
     photo_url: Optional[str] = Field(default=None, max_length=1000)
+    school_name: Optional[str] = Field(default=None, max_length=255)
+    accent_color: Optional[str] = Field(default=None, max_length=50)
+    background_color: Optional[str] = Field(default=None, max_length=50)
+    logo_url: Optional[str] = Field(default=None, max_length=1000)
 
 
 class SchoolIdCardResponse(BaseModel):

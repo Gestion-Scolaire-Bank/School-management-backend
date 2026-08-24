@@ -19,4 +19,6 @@ export const ROUTE_ACCESS = {
   "/status": ["ADMINISTRATEUR", "DIRECTEUR", "ENSEIGNANT"],
   "/child": ["PARENT"],
   "/fees": ["PARENT"],
+  "/design-samples": ["ADMINISTRATEUR"],
+  "/school-ids": ["ADMINISTRATEUR"],
 };
