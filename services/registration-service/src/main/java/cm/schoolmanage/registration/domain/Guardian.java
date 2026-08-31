@@ -47,6 +47,10 @@ public class Guardian {
 
     private String phone;
 
+    private String profession;
+
+    private String relationship;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 

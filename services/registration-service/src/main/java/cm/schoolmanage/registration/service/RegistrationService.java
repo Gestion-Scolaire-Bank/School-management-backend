@@ -54,6 +54,10 @@ public class RegistrationService {
                 .dateOfBirth(request.getDateOfBirth())
                 .establishmentId(schoolClass.getEstablishmentId())
                 .classId(schoolClass.getId())
+                .gender(request.getGender())
+                .birthPlace(request.getBirthPlace())
+                .address(request.getAddress())
+                .nationalNumber(request.getNationalNumber())
                 .documents(documents)
                 .build();
 
@@ -115,6 +119,10 @@ public class RegistrationService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .role(role)
+                .gender(request.getGender())
+                .birthPlace(request.getBirthPlace())
+                .address(request.getAddress())
+                .nationalNumber(request.getNationalNumber())
                 .establishmentId(request.getEstablishmentId())
                 .documents(documents)
                 .build();

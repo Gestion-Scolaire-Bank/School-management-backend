@@ -25,6 +25,10 @@ const EMPTY_STUDENT = {
   firstName: "",
   lastName: "",
   dateOfBirth: "",
+  gender: "M",
+  birthPlace: "",
+  address: "",
+  nationalNumber: "",
   guardianName: "",
   parentEmail: "",
   parentEmailConfirm: "",
@@ -40,6 +44,10 @@ const EMPTY_STAFF = {
   lastName: "",
   email: "",
   phone: "",
+  gender: "M",
+  birthPlace: "",
+  address: "",
+  nationalNumber: "",
   role: "ENSEIGNANT",
   establishmentId: "",
 };
@@ -286,6 +294,30 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
+                <Label htmlFor="gender">Sexe</Label>
+                <Select value={student.gender} onValueChange={(value) => setStudent((s) => ({ ...s, gender: value }))}>
+                  <SelectTrigger id="gender" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Masculin</SelectItem>
+                    <SelectItem value="F">Feminin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="birthPlace">Lieu de naissance</Label>
+                <Input id="birthPlace" value={student.birthPlace} onChange={updateStudentField("birthPlace")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="address">Adresse</Label>
+                <Input id="address" value={student.address} onChange={updateStudentField("address")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="nationalNumber">Numero National</Label>
+                <Input id="nationalNumber" value={student.nationalNumber} onChange={updateStudentField("nationalNumber")} />
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor="classId">Classe</Label>
                 <Select value={student.classId} onValueChange={(value) => setStudent((s) => ({ ...s, classId: value }))}>
                   <SelectTrigger id="classId" className="w-full">
@@ -434,6 +466,30 @@ export default function RegistrationPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="staffPhone">Telephone</Label>
                 <Input id="staffPhone" value={staff.phone} onChange={updateStaffField("phone")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="staffGender">Sexe</Label>
+                <Select value={staff.gender} onValueChange={(value) => setStaff((s) => ({ ...s, gender: value }))}>
+                  <SelectTrigger id="staffGender" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Masculin</SelectItem>
+                    <SelectItem value="F">Feminin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="staffBirthPlace">Lieu de naissance</Label>
+                <Input id="staffBirthPlace" value={staff.birthPlace} onChange={updateStaffField("birthPlace")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="staffAddress">Adresse</Label>
+                <Input id="staffAddress" value={staff.address} onChange={updateStaffField("address")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="staffNationalNumber">Numero National</Label>
+                <Input id="staffNationalNumber" value={staff.nationalNumber} onChange={updateStaffField("nationalNumber")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="staffRole">Role</Label>

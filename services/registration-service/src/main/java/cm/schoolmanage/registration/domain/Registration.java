@@ -62,6 +62,22 @@ public class Registration {
     /** Role RBAC transmis a auth-service (ENSEIGNANT / ADMINISTRATEUR / DIRECTEUR pour le personnel). Non utilise pour un eleve : le role PARENT est desormais attache a chaque Guardian, pas a l'eleve lui-meme. */
     private String role;
 
+    private String gender;
+
+    private String birthPlace;
+
+    private String address;
+
+    private String nationalNumber;
+
+    private String photoUrl;
+
+    @Column(unique = true)
+    private String registrationNumber;
+
+    @Column(length = 1000)
+    private String observation;
+
     /**
      * Non persiste : rattache par le service au moment de la lecture (cf.
      * RegistrationService#attachGuardians). Un eleve peut avoir plusieurs tuteurs, chacun avec

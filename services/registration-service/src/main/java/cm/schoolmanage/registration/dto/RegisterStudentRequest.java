@@ -25,6 +25,14 @@ public class RegisterStudentRequest {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dateOfBirth;
 
+    private String gender;
+
+    private String birthPlace;
+
+    private String address;
+
+    private String nationalNumber;
+
     @NotBlank
     private String guardianName;
 

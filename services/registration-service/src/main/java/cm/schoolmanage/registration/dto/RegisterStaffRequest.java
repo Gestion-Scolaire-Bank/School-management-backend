@@ -25,6 +25,14 @@ public class RegisterStaffRequest {
 
     private String phone;
 
+    private String gender;
+
+    private String birthPlace;
+
+    private String address;
+
+    private String nationalNumber;
+
     @NotBlank
     private String role;
 

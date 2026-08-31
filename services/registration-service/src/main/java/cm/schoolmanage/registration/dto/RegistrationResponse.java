@@ -24,6 +24,13 @@ public class RegistrationResponse {
     private String email;
     private String phone;
     private String role;
+    private String gender;
+    private String birthPlace;
+    private String address;
+    private String nationalNumber;
+    private String photoUrl;
+    private String registrationNumber;
+    private String observation;
     private List<GuardianResponse> guardians;
     private UUID establishmentId;
     private UUID classId;
@@ -41,6 +48,13 @@ public class RegistrationResponse {
                 .email(registration.getEmail())
                 .phone(registration.getPhone())
                 .role(registration.getRole())
+                .gender(registration.getGender())
+                .birthPlace(registration.getBirthPlace())
+                .address(registration.getAddress())
+                .nationalNumber(registration.getNationalNumber())
+                .photoUrl(registration.getPhotoUrl())
+                .registrationNumber(registration.getRegistrationNumber())
+                .observation(registration.getObservation())
                 .guardians(registration.getGuardians() == null
                         ? List.of()
                         : registration.getGuardians().stream().map(GuardianResponse::from).toList())
