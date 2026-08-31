@@ -49,6 +49,12 @@ public class SchoolClass {
     @Column(nullable = false)
     private String level;
 
+    private String acronym;
+
+    private Double registrationFees;
+
+    private Double schoolFees;
+
     @Column(name = "academic_year", nullable = false)
     private String academicYear;
 

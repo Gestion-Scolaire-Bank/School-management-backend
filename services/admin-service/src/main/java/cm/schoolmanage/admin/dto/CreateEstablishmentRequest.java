@@ -20,4 +20,14 @@ public class CreateEstablishmentRequest {
 
     @Email
     private String email;
+
+    private String timeFormat;
+
+    private String timeZone;
+
+    private String currency;
+
+    private String slogan;
+
+    private String description;
 }

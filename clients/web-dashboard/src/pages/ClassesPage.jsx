@@ -11,7 +11,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import { Layers, BookOpen, UserCog } from "lucide-react";
 
-const EMPTY_CLASS = { name: "", level: "", academicYear: "2025-2026", establishmentId: "" };
+const EMPTY_CLASS = { name: "", level: "", acronym: "", registrationFees: "", schoolFees: "", academicYear: "2025-2026", establishmentId: "" };
 const EMPTY_SUBJECT = { name: "", code: "" };
 const EMPTY_ASSIGNMENT = { teacherId: "", classId: "", subjectId: "", academicYear: "2025-2026" };
 
@@ -240,6 +240,35 @@ export default function ClassesPage() {
                   value={classForm.level}
                   onChange={(e) => setClassForm((f) => ({ ...f, level: e.target.value }))}
                   required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="classAcronym">Acronyme</Label>
+                <Input
+                  id="classAcronym"
+                  placeholder="ex. 6A"
+                  value={classForm.acronym}
+                  onChange={(e) => setClassForm((f) => ({ ...f, acronym: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="registrationFees">Frais d'inscription</Label>
+                <Input
+                  id="registrationFees"
+                  type="number"
+                  placeholder="ex. 15000"
+                  value={classForm.registrationFees}
+                  onChange={(e) => setClassForm((f) => ({ ...f, registrationFees: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="schoolFees">Frais de scolarite</Label>
+                <Input
+                  id="schoolFees"
+                  type="number"
+                  placeholder="ex. 50000"
+                  value={classForm.schoolFees}
+                  onChange={(e) => setClassForm((f) => ({ ...f, schoolFees: e.target.value }))}
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
@@ -547,6 +576,9 @@ export default function ClassesPage() {
                 <TableRow>
                   <TableHead>Nom</TableHead>
                   <TableHead>Niveau</TableHead>
+                  <TableHead>Acronyme</TableHead>
+                  <TableHead>Inscription</TableHead>
+                  <TableHead>Scolarite</TableHead>
                   <TableHead>Annee</TableHead>
                   <TableHead>Etablissement</TableHead>
                 </TableRow>
@@ -556,6 +588,9 @@ export default function ClassesPage() {
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>{c.level}</TableCell>
+                    <TableCell>{c.acronym || "-"}</TableCell>
+                    <TableCell>{c.registrationFees || "-"}</TableCell>
+                    <TableCell>{c.schoolFees || "-"}</TableCell>
                     <TableCell>{c.academicYear}</TableCell>
                     <TableCell>{establishments.find((e) => e.id === c.establishmentId)?.name || "-"}</TableCell>
                   </TableRow>

@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { toast } from "@/components/ui/toast";
 import { ESTABLISHMENT_STATUS, statusOf } from "@/lib/status";
 
-const EMPTY_FORM = { name: "", address: "", city: "", phone: "", email: "" };
+const EMPTY_FORM = { name: "", address: "", city: "", phone: "", email: "", timeFormat: "24h", timeZone: "UTC", currency: "XAF", slogan: "", description: "" };
 
 // UC23 - Gerer la configuration multi-etablissement (admin-service, section 3.7)
 export default function EstablishmentsPage() {
@@ -89,6 +89,26 @@ export default function EstablishmentsPage() {
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" type="email" value={form.email} onChange={updateField("email")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="timeFormat">Format de l'heure</Label>
+              <Input id="timeFormat" value={form.timeFormat} onChange={updateField("timeFormat")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="timeZone">Fuseau Horaire</Label>
+              <Input id="timeZone" value={form.timeZone} onChange={updateField("timeZone")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="currency">Devise</Label>
+              <Input id="currency" value={form.currency} onChange={updateField("currency")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="slogan">Slogan</Label>
+              <Input id="slogan" value={form.slogan} onChange={updateField("slogan")} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <Input id="description" value={form.description} onChange={updateField("description")} />
             </div>
             {error && (
               <Alert variant="error" className="sm:col-span-2">

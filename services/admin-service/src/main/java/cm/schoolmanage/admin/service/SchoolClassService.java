@@ -34,6 +34,9 @@ public class SchoolClassService {
                 .level(request.getLevel())
                 .academicYear(request.getAcademicYear())
                 .headTeacherId(request.getHeadTeacherId())
+                .acronym(request.getAcronym())
+                .registrationFees(request.getRegistrationFees())
+                .schoolFees(request.getSchoolFees())
                 .build();
 
         SchoolClass saved;

@@ -18,6 +18,11 @@ public class EstablishmentResponse {
     private String city;
     private String phone;
     private String email;
+    private String timeFormat;
+    private String timeZone;
+    private String currency;
+    private String slogan;
+    private String description;
     private EstablishmentStatus status;
     private Instant createdAt;
 
@@ -29,6 +34,11 @@ public class EstablishmentResponse {
                 .city(establishment.getCity())
                 .phone(establishment.getPhone())
                 .email(establishment.getEmail())
+                .timeFormat(establishment.getTimeFormat())
+                .timeZone(establishment.getTimeZone())
+                .currency(establishment.getCurrency())
+                .slogan(establishment.getSlogan())
+                .description(establishment.getDescription())
                 .status(establishment.getStatus())
                 .createdAt(establishment.getCreatedAt())
                 .build();

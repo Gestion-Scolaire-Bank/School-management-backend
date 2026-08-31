@@ -23,6 +23,11 @@ public class EstablishmentService {
                 .city(request.getCity())
                 .phone(request.getPhone())
                 .email(request.getEmail())
+                .timeFormat(request.getTimeFormat())
+                .timeZone(request.getTimeZone())
+                .currency(request.getCurrency())
+                .slogan(request.getSlogan())
+                .description(request.getDescription())
                 .build();
         return establishmentRepository.save(establishment);
     }

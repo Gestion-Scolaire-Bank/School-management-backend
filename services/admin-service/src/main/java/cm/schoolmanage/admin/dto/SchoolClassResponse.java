@@ -16,6 +16,9 @@ public class SchoolClassResponse {
     private UUID establishmentId;
     private String name;
     private String level;
+    private String acronym;
+    private Double registrationFees;
+    private Double schoolFees;
     private String academicYear;
     private UUID headTeacherId;
     private SchoolClassStatus status;
@@ -27,6 +30,9 @@ public class SchoolClassResponse {
                 .establishmentId(schoolClass.getEstablishmentId())
                 .name(schoolClass.getName())
                 .level(schoolClass.getLevel())
+                .acronym(schoolClass.getAcronym())
+                .registrationFees(schoolClass.getRegistrationFees())
+                .schoolFees(schoolClass.getSchoolFees())
                 .academicYear(schoolClass.getAcademicYear())
                 .headTeacherId(schoolClass.getHeadTeacherId())
                 .status(schoolClass.getStatus())

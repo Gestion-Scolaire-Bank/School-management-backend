@@ -24,4 +24,10 @@ public class CreateSchoolClassRequest {
     private String academicYear;
 
     private UUID headTeacherId;
+
+    private String acronym;
+
+    private Double registrationFees;
+
+    private Double schoolFees;
 }
