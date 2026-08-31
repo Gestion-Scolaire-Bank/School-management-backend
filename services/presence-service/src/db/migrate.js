@@ -20,6 +20,8 @@ async function ensureSchema() {
   // ALTER ... IF NOT EXISTS : necessaire pour une base deja existante, ou CREATE TABLE
   // IF NOT EXISTS ci-dessus n'a aucun effet sur les colonnes d'une table deja creee.
   await pool.query('ALTER TABLE presence_records ADD COLUMN IF NOT EXISTS establishment_id VARCHAR(100);');
+  await pool.query('ALTER TABLE presence_records ADD COLUMN IF NOT EXISTS justified BOOLEAN DEFAULT false;');
+  await pool.query('ALTER TABLE presence_records ADD COLUMN IF NOT EXISTS reason VARCHAR(500);');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_presence_person ON presence_records (person_id, record_date);');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_presence_class ON presence_records (class_id, record_date);');
 }

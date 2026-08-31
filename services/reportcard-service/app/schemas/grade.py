@@ -9,6 +9,7 @@ class GradeCreate(BaseModel):
     class_id: str = Field(min_length=1, max_length=100)
     period: str = Field(min_length=1, max_length=50)
     subject_id: str = Field(min_length=1, max_length=100)
+    evaluation_id: Optional[str] = None
     score: float = Field(ge=0)
     max_score: float = Field(default=20.0, gt=0)
     weight: float = Field(default=1.0, gt=0)
@@ -29,6 +30,7 @@ class GradeOut(BaseModel):
     period: str
     subject_id: str
     subject_name: str
+    evaluation_id: Optional[str] = None
     score: float
     max_score: float
     weight: float

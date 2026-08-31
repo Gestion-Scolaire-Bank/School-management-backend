@@ -11,8 +11,12 @@ from app.core.database import get_db
 from app.core.storage import PedagogicStorage, get_storage
 from app.models.course import Course
 from app.models.resource import PedagogicResource
+from app.models.timetable import TimetableEntry
+from app.models.evaluation import Evaluation
 from app.schemas.course import CourseCreate, CourseOut
 from app.schemas.resource import ResourceOut, ResourceType
+from app.schemas.timetable import TimetableEntryCreate, TimetableEntryOut
+from app.schemas.evaluation import EvaluationCreate, EvaluationOut
 
 router = APIRouter()
 
@@ -177,4 +181,107 @@ def lister_les_cours_disponibles(
     if class_id:
         stmt = stmt.where(Course.class_id == class_id)
     stmt = stmt.order_by(Course.created_at.desc())
+    return db.execute(stmt).scalars().all()
+
+
+@router.post(
+    "/api/v1/pedagogic/timetables",
+    response_model=TimetableEntryOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_timetable_entry(
+    payload: TimetableEntryCreate,
+    x_user_id: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+    admin_client: AdminServiceClient = Depends(get_admin_client),
+):
+    try:
+        admin_client.get_class(payload.class_id)
+        subject = admin_client.get_subject(payload.subject_id)
+    except AdminResourceNotFound as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except AdminServiceUnavailable as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
+
+    entry = TimetableEntry(
+        class_id=payload.class_id,
+        subject_id=payload.subject_id,
+        subject_name=subject["name"],
+        teacher_id=payload.teacher_id,
+        day_of_week=payload.day_of_week,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        room=payload.room,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.get("/api/v1/pedagogic/timetables", response_model=list[TimetableEntryOut])
+def list_timetable_entries(
+    class_id: Optional[str] = Query(None),
+    teacher_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    stmt = select(TimetableEntry)
+    if class_id:
+        stmt = stmt.where(TimetableEntry.class_id == class_id)
+    if teacher_id:
+        stmt = stmt.where(TimetableEntry.teacher_id == teacher_id)
+    stmt = stmt.order_by(TimetableEntry.day_of_week, TimetableEntry.start_time)
+    return db.execute(stmt).scalars().all()
+
+
+@router.post(
+    "/api/v1/pedagogic/evaluations",
+    response_model=EvaluationOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_evaluation(
+    payload: EvaluationCreate,
+    x_user_id: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+    admin_client: AdminServiceClient = Depends(get_admin_client),
+):
+    try:
+        admin_client.get_class(payload.class_id)
+        subject = admin_client.get_subject(payload.subject_id)
+    except AdminResourceNotFound as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except AdminServiceUnavailable as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e)) from e
+
+    _require_teacher_assignment(admin_client, x_user_id or payload.teacher_id, payload.class_id, payload.subject_id)
+
+    evaluation = Evaluation(
+        title=payload.title,
+        class_id=payload.class_id,
+        subject_id=payload.subject_id,
+        subject_name=subject["name"],
+        teacher_id=payload.teacher_id,
+        evaluation_type=payload.evaluation_type,
+        max_score=payload.max_score,
+        weight=payload.weight,
+        evaluation_date=payload.evaluation_date,
+    )
+    db.add(evaluation)
+    db.commit()
+    db.refresh(evaluation)
+    return evaluation
+
+
+@router.get("/api/v1/pedagogic/evaluations", response_model=list[EvaluationOut])
+def list_evaluations(
+    class_id: Optional[str] = Query(None),
+    subject_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    stmt = select(Evaluation)
+    if class_id:
+        stmt = stmt.where(Evaluation.class_id == class_id)
+    if subject_id:
+        stmt = stmt.where(Evaluation.subject_id == subject_id)
+    stmt = stmt.order_by(Evaluation.evaluation_date.desc())
     return db.execute(stmt).scalars().all()

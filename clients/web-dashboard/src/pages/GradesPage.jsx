@@ -19,6 +19,7 @@ const EMPTY_GRADE = {
   score: "",
   max_score: "20",
   weight: "1",
+  evaluation_id: "",
 };
 
 function classLabel(c) {
@@ -95,6 +96,18 @@ export default function GradesPage() {
       .catch(() => setGradeClassStudents([]));
   }, [grade.class_id]);
 
+  const [classEvaluations, setClassEvaluations] = useState([]);
+  useEffect(() => {
+    if (!grade.class_id || !grade.subject_id) {
+      setClassEvaluations([]);
+      return;
+    }
+    apiClient
+      .get("/api/v1/pedagogic/evaluations", { params: { class_id: grade.class_id, subject_id: grade.subject_id } })
+      .then((res) => setClassEvaluations(res.data || []))
+      .catch(() => setClassEvaluations([]));
+  }, [grade.class_id, grade.subject_id]);
+
   function updateGradeField(field) {
     return (e) => setGrade((g) => ({ ...g, [field]: e.target.value }));
   }
@@ -106,6 +119,7 @@ export default function GradesPage() {
     try {
       await apiClient.post("/api/v1/reports/grades", {
         ...grade,
+        evaluation_id: (grade.evaluation_id && grade.evaluation_id !== "none") ? grade.evaluation_id : undefined,
         score: Number(grade.score),
         max_score: Number(grade.max_score),
         weight: Number(grade.weight),
@@ -262,6 +276,30 @@ export default function GradesPage() {
                   {gradeClassSubjects.map((cs) => (
                     <SelectItem key={cs.subjectId} value={cs.subjectId}>
                       {cs.subjectName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="evaluation_id">Evaluation (optionnel)</Label>
+              <Select
+                value={grade.evaluation_id}
+                onValueChange={(value) => setGrade((g) => ({ ...g, evaluation_id: value }))}
+                disabled={!grade.subject_id}
+              >
+                <SelectTrigger id="evaluation_id" className="w-full">
+                  <SelectValue
+                    placeholder={grade.subject_id ? "Aucune" : "Choisissez une matiere d'abord"}
+                  >
+                    {(value) => classEvaluations.find((e) => e.id === value)?.title || "Aucune"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucune (saisie libre)</SelectItem>
+                  {classEvaluations.map((ev) => (
+                    <SelectItem key={ev.id} value={ev.id}>
+                      {ev.title} ({ev.evaluation_type})
                     </SelectItem>
                   ))}
                 </SelectContent>

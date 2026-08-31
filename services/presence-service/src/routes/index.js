@@ -112,6 +112,47 @@ router.get('/api/v1/presence/class/:id', async (req, res, next) => {
   }
 });
 
+// Roles autorises : Enseignant / Admin
+router.post('/api/v1/presence/class/:id/absences', async (req, res, next) => {
+  try {
+    const classId = req.params.id;
+    const { absences } = req.body; // Array of { personId, personType, justified, reason }
+    
+    if (!Array.isArray(absences)) {
+      return res.status(400).json({ message: 'absences must be an array' });
+    }
+    
+    const schoolClass = await adminClient.getClass(classId);
+    if (!schoolClass) {
+      return res.status(400).json({ message: `Classe introuvable : ${classId}` });
+    }
+    const establishmentId = schoolClass.establishmentId || null;
+
+    const results = [];
+    for (const abs of absences) {
+       const record = await presenceRepository.createAbsence({
+         personId: abs.personId,
+         personType: abs.personType || 'ELEVE',
+         classId,
+         establishmentId,
+         justified: abs.justified || false,
+         reason: abs.reason || null
+       });
+       results.push(record);
+       
+       publish('sm.presence.recorded', { status: 'ABSENT', classId, justified: abs.justified }).catch((error) => {
+         console.warn(`Echec de publication sm.presence.recorded : ${error.message}`);
+       });
+    }
+    res.status(201).json(results);
+  } catch (error) {
+    if (error instanceof adminClient.AdminServiceUnavailableError) {
+      return res.status(502).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
 // Roles autorises : Parent / Admin
 router.get('/api/v1/presence/student/:id', async (req, res, next) => {
   try {

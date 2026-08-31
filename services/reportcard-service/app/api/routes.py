@@ -72,6 +72,7 @@ def saisir_une_note(
         period=payload.period,
         subject_id=payload.subject_id,
         subject_name=subject["name"],
+        evaluation_id=payload.evaluation_id,
         score=payload.score,
         max_score=payload.max_score,
         weight=payload.weight,

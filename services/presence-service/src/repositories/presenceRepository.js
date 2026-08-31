@@ -27,6 +27,19 @@ async function createCheckIn({ personId, personType, classId, establishmentId })
   return result.rows[0];
 }
 
+async function createAbsence({ personId, personType, classId, establishmentId, justified = false, reason = null }) {
+  const pool = getPool();
+  const id = randomUUID();
+  const now = new Date();
+  const result = await pool.query(
+    `INSERT INTO presence_records (id, person_id, person_type, class_id, establishment_id, record_date, status, justified, reason)
+     VALUES ($1, $2, $3, $4, $5, $6, 'ABSENT', $7, $8)
+     RETURNING *`,
+    [id, personId, personType, classId || null, establishmentId || null, toDateOnly(now), justified, reason]
+  );
+  return result.rows[0];
+}
+
 async function closeCheckOut(recordId) {
   const pool = getPool();
   const result = await pool.query(
@@ -76,6 +89,7 @@ async function findPresentPersonIds(classId, date) {
 module.exports = {
   findOpenRecord,
   createCheckIn,
+  createAbsence,
   closeCheckOut,
   listByClass,
   listByPerson,
