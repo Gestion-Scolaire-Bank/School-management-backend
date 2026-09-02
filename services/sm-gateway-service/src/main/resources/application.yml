@@ -13,11 +13,15 @@ spring:
           enabled: true
       # CORS pour le frontend web (clients/web-dashboard, cf. section 1.4) : le JWT circule
       # via l'en-tete Authorization (pas de cookie), allowCredentials reste donc a false.
+      # Chaque origine est listee individuellement (Spring Cloud Gateway n'accepte pas une
+      # chaine separee par des virgules comme pattern unique).
       globalcors:
         cors-configurations:
           "[/**]":
             allowedOriginPatterns:
-              - ${SM_GATEWAY_CORS_ALLOWED_ORIGIN:http://localhost:5173}
+              - "http://localhost:5173"
+              - "http://localhost:5174"
+              - "http://localhost:19006"
             allowedMethods:
               - GET
               - POST
@@ -90,6 +94,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
 eureka:
   client:

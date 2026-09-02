@@ -72,7 +72,17 @@ public class AdminController {
      * Liste les etablissements rattaches a la plateforme (tableau de bord).
      */
     @GetMapping("/api/v1/admin/establishments")
-    public ResponseEntity<List<EstablishmentResponse>> listerLesEtablissements() {
+    public ResponseEntity<List<EstablishmentResponse>> listerLesEtablissements(
+            @RequestParam(value = "page", required = false) Integer page,
+            @RequestParam(value = "size", required = false) Integer size) {
+        if (page != null && size != null) {
+            Pageable pageable = PageRequest.of(page, size);
+            Page<Establishment> pageResult = establishmentService.findAll(pageable);
+            var establishments = pageResult.getContent().stream()
+                    .map(EstablishmentResponse::from)
+                    .toList();
+            return ResponseEntity.ok(establishments);
+        }
         var establishments = establishmentService.findAll().stream()
                 .map(EstablishmentResponse::from)
                 .toList();

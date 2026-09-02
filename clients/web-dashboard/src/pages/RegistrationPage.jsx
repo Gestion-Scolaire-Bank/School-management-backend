@@ -12,7 +12,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import FileDropzone from "@/components/FileDropzone";
 import { REGISTRATION_STATUS, statusOf } from "@/lib/status";
-
+import FormCard from '@/components/FormCard';
 const STAFF_ROLES = ["ENSEIGNANT", "ADMINISTRATEUR", "DIRECTEUR"];
 
 const ROLE_LABELS = {

@@ -12,6 +12,7 @@
 # Usage :
 #   docker compose -f docker-compose.infra.yml up -d      # 1) infra partagee
 #   docker compose up -d                                  # 2) micro-services
+#   docker compose --profile frontend up -d               # 3) optionnel : inclure le dashboard web
 name: schoolmanage-app
 
 services:
@@ -55,19 +56,24 @@ services:
     ports: ["8888:8888"]
     environment:
       SM_AUTH_JWT_SECRET: ${SM_AUTH_JWT_SECRET}
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       SM_CONFIG_SERVER_URL: http://sm-config-service:8080
       SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
-      SM_GATEWAY_CORS_ALLOWED_ORIGIN: ${SM_GATEWAY_CORS_ALLOWED_ORIGIN:-http://localhost:5173,http://localhost:5174,http://localhost:19006}
     depends_on:
       sm-registry-service:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
     networks: [schoolmanage-net]
 
   # ------------------------------------------------------------------
   # S4-S15 : Micro-services metier (demarrage en parallele une fois le
-  # socle S1-S3 disponible)
+  # socle S1-S3 disponible et sain)
   # ------------------------------------------------------------------
   auth-service:
     build: ./services/auth-service
@@ -85,13 +91,15 @@ services:
       SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   registration-service:
     build: ./services/registration-service
     container_name: registration-service
     restart: unless-stopped
+    ports:
+      - "8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_registration_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -104,7 +112,7 @@ services:
       SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   payment-service:
@@ -126,7 +134,7 @@ services:
       SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   presence-service:
@@ -141,7 +149,7 @@ services:
       ADMIN_SERVICE_URL: http://admin-service:8092
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   notification-service:
@@ -161,7 +169,7 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8081
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   reportcard-service:
@@ -178,7 +186,7 @@ services:
       REGISTRATION_SERVICE_URL: http://registration-service:8082
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   userstatus-service:
@@ -191,7 +199,7 @@ services:
       KAFKA_BROKER: kafka:9092
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   whatsapp-service:
@@ -206,7 +214,7 @@ services:
       ADMIN_SERVICE_URL: http://admin-service:8092
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   pedagogic-service:
@@ -221,7 +229,7 @@ services:
       ADMIN_SERVICE_URL: http://admin-service:8092
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   schoolid-service:
@@ -233,7 +241,7 @@ services:
       KAFKA_BROKER: kafka:9092
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   analytics-service:
@@ -247,7 +255,7 @@ services:
       KAFKA_BROKER: kafka:9092
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
     networks: [schoolmanage-net]
 
   admin-service:
@@ -263,7 +271,21 @@ services:
       SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
     depends_on:
       sm-gateway-service:
-        condition: service_started
+        condition: service_healthy
+    networks: [schoolmanage-net]
+
+  # ------------------------------------------------------------------
+  # Clients (profil "frontend" : docker compose --profile frontend up -d)
+  # ------------------------------------------------------------------
+  web-dashboard:
+    build: ./clients/web-dashboard
+    container_name: sm-web-dashboard
+    restart: unless-stopped
+    ports: ["5180:80"]
+    profiles: ["frontend"]
+    depends_on:
+      sm-gateway-service:
+        condition: service_healthy
     networks: [schoolmanage-net]
 
 networks:

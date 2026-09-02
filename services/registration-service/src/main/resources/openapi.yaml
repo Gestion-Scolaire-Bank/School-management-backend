@@ -1,0 +1,164 @@
+openapi: 3.0.3
+info:
+  title: Registration Service API
+  version: "1.0"
+  description: API for student and staff registration in SchoolManage.
+servers:
+  - url: http://localhost:8082
+    description: Local development server
+paths:
+  /api/v1/registrations/student:
+    post:
+      tags:
+        - Registration
+      summary: Register a new student
+      operationId: registerStudent
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterStudentRequest'
+      responses:
+        '201':
+          description: Student registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '409':
+          description: Conflict – duplicate registration
+  /api/v1/registrations/staff:
+    post:
+      tags:
+        - Registration
+      summary: Register a new staff member
+      operationId: registerStaff
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterStaffRequest'
+      responses:
+        '201':
+          description: Staff registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '409':
+          description: Conflict – duplicate registration
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegistrationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+      required:
+        - id
+        - message
+    RegisterStudentRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - dateOfBirth
+        - guardianName
+        - parentEmail
+        - classId
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+        birthPlace:
+          type: string
+        address:
+          type: string
+        nationalNumber:
+          type: string
+        guardianName:
+          type: string
+        parentEmail:
+          type: string
+          format: email
+        parentPhone:
+          type: string
+        secondGuardianName:
+          type: string
+        secondGuardianEmail:
+          type: string
+          format: email
+        secondGuardianPhone:
+          type: string
+        classId:
+          type: string
+          format: uuid
+        photo:
+          type: string
+          format: binary
+        birthCertificate:
+          type: string
+          format: binary
+    RegisterStaffRequest:
+      type: object
+      required:
+        - firstName
+        - lastName
+        - email
+        - role
+        - establishmentId
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        gender:
+          type: string
+        birthPlace:
+          type: string
+        address:
+          type: string
+        nationalNumber:
+          type: string
+        role:
+          type: string
+        establishmentId:
+          type: string
+          format: uuid
+        cv:
+          type: string
+          format: binary
+        diploma:
+          type: string
+          format: binary
+security:
+  - bearerAuth: []

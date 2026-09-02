@@ -36,6 +36,10 @@ public class EstablishmentService {
         return establishmentRepository.findAll();
     }
 
+    // New paginated method
+    public org.springframework.data.domain.Page<Establishment> findAll(org.springframework.data.domain.Pageable pageable) {
+        return establishmentRepository.findAll(pageable);
+    }
     public Establishment getById(UUID id) {
         return establishmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Etablissement introuvable : " + id));
