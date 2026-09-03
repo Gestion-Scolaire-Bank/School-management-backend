@@ -1,5 +1,6 @@
 package cm.schoolmanage.admin.controller;
 
+import cm.schoolmanage.admin.domain.Establishment;
 import cm.schoolmanage.admin.dto.AssignSubjectToClassRequest;
 import cm.schoolmanage.admin.dto.ClassSubjectResponse;
 import cm.schoolmanage.admin.dto.CreateEstablishmentRequest;
@@ -36,6 +37,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 /**
  * Controleur REST pour admin-service - endpoints extraits du document de conception

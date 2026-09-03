@@ -226,9 +226,7 @@ export default function ResourcesPage() {
                 onValueChange={(value) => setResourceForm((f) => ({ ...f, class_id: value, subject_id: "" }))}
               >
                 <SelectTrigger id="resourceClassId" className="w-full">
-                  <SelectValue placeholder="Aucune classe">
-                    {(value) => resourceClassLabel(value) || "Aucune classe"}
-                  </SelectValue>
+                  <SelectValue placeholder="Aucune classe" />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -247,9 +245,7 @@ export default function ResourcesPage() {
                 disabled={!resourceForm.class_id}
               >
                 <SelectTrigger id="resourceSubjectId" className="w-full">
-                  <SelectValue placeholder={resourceForm.class_id ? "Aucune matiere" : "Choisissez d'abord une classe"}>
-                    {(value) => resourceSubjects.find((cs) => cs.subjectId === value)?.subjectName || "Aucune matiere"}
-                  </SelectValue>
+                  <SelectValue placeholder={resourceForm.class_id ? "Aucune matiere" : "Choisissez d'abord une classe"} />
                 </SelectTrigger>
                 <SelectContent>
                   {resourceSubjects.map((cs) => (
@@ -296,12 +292,7 @@ export default function ResourcesPage() {
                 onValueChange={(value) => setCourse((c) => ({ ...c, class_id: value, subject_id: "" }))}
               >
                 <SelectTrigger id="courseClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe">
-                    {(value) => {
-                      const c = classes.find((cl) => cl.id === value);
-                      return c ? classLabel(c) : "Choisir une classe";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir une classe" />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -320,9 +311,7 @@ export default function ResourcesPage() {
                 disabled={!course.class_id}
               >
                 <SelectTrigger id="courseSubjectId" className="w-full">
-                  <SelectValue placeholder={course.class_id ? "Choisir une matiere" : "Choisissez d'abord une classe"}>
-                    {(value) => courseSubjects.find((cs) => cs.subjectId === value)?.subjectName || "Choisir une matiere"}
-                  </SelectValue>
+                  <SelectValue placeholder={course.class_id ? "Choisir une matiere" : "Choisissez d'abord une classe"} />
                 </SelectTrigger>
                 <SelectContent>
                   {courseSubjects.length === 0 && (

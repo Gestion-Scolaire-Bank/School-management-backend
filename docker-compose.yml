@@ -60,6 +60,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       SM_CONFIG_SERVER_URL: http://sm-config-service:8080
       SM_REGISTRY_URL: http://sm-registry-service:8761/eureka
+      MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
     depends_on:
       sm-registry-service:
         condition: service_healthy
@@ -98,8 +99,6 @@ services:
     build: ./services/registration-service
     container_name: registration-service
     restart: unless-stopped
-    ports:
-      - "8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/sm_registration_db
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -272,6 +271,14 @@ services:
     depends_on:
       sm-gateway-service:
         condition: service_healthy
+    networks: [schoolmanage-net]
+
+  timetable-service:
+    build: ./services/timetable-service
+    container_name: timetable-service
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/sm_timetable_db
     networks: [schoolmanage-net]
 
   # ------------------------------------------------------------------

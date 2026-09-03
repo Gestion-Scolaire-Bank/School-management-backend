@@ -1,0 +1,13 @@
+# Timetable Service - porte du kernel TimeTables wyscolars (ClassTime/BreakTime/Holiday/Occurrence)
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/sm_timetable_db
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+schoolmanage:
+  timetable:
+    slot-granularity-minutes: 15
+    week-first-day: 1 # Monday

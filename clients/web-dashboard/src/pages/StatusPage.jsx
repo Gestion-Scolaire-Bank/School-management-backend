@@ -186,9 +186,7 @@ export default function StatusPage() {
                 <Label htmlFor="historyUser">Compte</Label>
                 <Select value={historyUserId} onValueChange={loadHistory}>
                   <SelectTrigger id="historyUser" className="w-full">
-                    <SelectValue placeholder="Choisir un compte">
-                      {(value) => users.find((u) => u.id === value)?.fullName || "Choisir un compte"}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir un compte" />
                   </SelectTrigger>
                   <SelectContent>
                     {users.map((u) => (

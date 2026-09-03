@@ -11,11 +11,12 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import { toast } from "@/components/ui/toast";
 import { ESTABLISHMENT_STATUS, statusOf } from "@/lib/status";
+import { useI18n } from "@/lib/i18n";
 
 const EMPTY_FORM = { name: "", address: "", city: "", phone: "", email: "", timeFormat: "24h", timeZone: "UTC", currency: "XAF", slogan: "", description: "" };
 
-// UC23 - Gerer la configuration multi-etablissement (admin-service, section 3.7)
 export default function EstablishmentsPage() {
+  const { t } = useI18n();
   const [establishments, setEstablishments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -24,16 +25,9 @@ export default function EstablishmentsPage() {
 
   function loadEstablishments() {
     setLoading(true);
-    return apiClient
-      .get("/api/v1/admin/establishments")
-      .then((res) => setEstablishments(res.data || []))
-      .catch(() => setEstablishments([]))
-      .finally(() => setLoading(false));
+    return apiClient.get("/api/v1/admin/establishments").then((res) => setEstablishments(res.data || [])).catch(() => setEstablishments([])).finally(() => setLoading(false));
   }
-
-  useEffect(() => {
-    loadEstablishments();
-  }, []);
+  useEffect(() => { loadEstablishments(); }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -43,121 +37,43 @@ export default function EstablishmentsPage() {
       await apiClient.post("/api/v1/admin/establishments", form);
       setForm(EMPTY_FORM);
       await loadEstablishments();
-      toast.add({ title: "Etablissement cree avec succes.", type: "success" });
-    } catch {
-      setError("Impossible de creer l'etablissement - verifiez les champs.");
-    } finally {
-      setSubmitting(false);
-    }
+      toast.add({ title: t("est.success"), type: "success" });
+    } catch { setError(t("est.error")); } finally { setSubmitting(false); }
   }
-
-  function updateField(field) {
-    return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
-  }
+  function updateField(field) { return (e) => setForm((f) => ({ ...f, [field]: e.target.value })); }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Etablissements</h2>
-        <p className="text-sm text-muted-foreground">
-          Configuration multi-etablissement de la plateforme.
-        </p>
+        <h2 className="text-2xl font-semibold">{t("est.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("est.subtitle")}</p>
       </div>
-
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Ajouter un etablissement</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">{t("est.addTitle")}</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Nom</Label>
-              <Input id="name" value={form.name} onChange={updateField("name")} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="city">Ville</Label>
-              <Input id="city" value={form.city} onChange={updateField("city")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="address">Adresse</Label>
-              <Input id="address" value={form.address} onChange={updateField("address")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Telephone</Label>
-              <Input id="phone" value={form.phone} onChange={updateField("phone")} />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={form.email} onChange={updateField("email")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="timeFormat">Format de l'heure</Label>
-              <Input id="timeFormat" value={form.timeFormat} onChange={updateField("timeFormat")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="timeZone">Fuseau Horaire</Label>
-              <Input id="timeZone" value={form.timeZone} onChange={updateField("timeZone")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="currency">Devise</Label>
-              <Input id="currency" value={form.currency} onChange={updateField("currency")} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="slogan">Slogan</Label>
-              <Input id="slogan" value={form.slogan} onChange={updateField("slogan")} />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="description">Description</Label>
-              <Input id="description" value={form.description} onChange={updateField("description")} />
-            </div>
-            {error && (
-              <Alert variant="error" className="sm:col-span-2">
-                {error}
-              </Alert>
-            )}
-            <div className="sm:col-span-2">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? "Creation..." : "Creer l'etablissement"}
-              </Button>
-            </div>
+            <div className="space-y-1.5"><Label htmlFor="name">{t("est.field.name")}</Label><Input id="name" value={form.name} onChange={updateField("name")} required /></div>
+            <div className="space-y-1.5"><Label htmlFor="city">{t("est.field.city")}</Label><Input id="city" value={form.city} onChange={updateField("city")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="address">{t("est.field.address")}</Label><Input id="address" value={form.address} onChange={updateField("address")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="phone">{t("est.field.phone")}</Label><Input id="phone" value={form.phone} onChange={updateField("phone")} /></div>
+            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="email">{t("est.field.email")}</Label><Input id="email" type="email" value={form.email} onChange={updateField("email")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="timeFormat">{t("est.field.timeFormat")}</Label><Input id="timeFormat" value={form.timeFormat} onChange={updateField("timeFormat")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="timeZone">{t("est.field.timeZone")}</Label><Input id="timeZone" value={form.timeZone} onChange={updateField("timeZone")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="currency">{t("est.field.currency")}</Label><Input id="currency" value={form.currency} onChange={updateField("currency")} /></div>
+            <div className="space-y-1.5"><Label htmlFor="slogan">{t("est.field.slogan")}</Label><Input id="slogan" value={form.slogan} onChange={updateField("slogan")} /></div>
+            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="description">{t("est.field.description")}</Label><Input id="description" value={form.description} onChange={updateField("description")} /></div>
+            {error && <Alert variant="error" className="sm:col-span-2">{error}</Alert>}
+            <div className="sm:col-span-2"><Button type="submit" disabled={submitting}>{submitting ? t("est.creating") : t("est.create")}</Button></div>
           </form>
         </CardContent>
       </Card>
-
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Etablissements enregistres</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle className="text-base">{t("est.listTitle")}</CardTitle></CardHeader>
         <CardContent>
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Chargement...</p>
-          ) : establishments.length === 0 ? (
-            <EmptyState icon={Building2} message="Aucun etablissement enregistre." />
-          ) : (
+          {loading ? <p className="text-sm text-muted-foreground">{t("est.loading")}</p> : establishments.length === 0 ? <EmptyState icon={Building2} message={t("est.empty")} /> : (
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Ville</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {establishments.map((e) => {
-                  const s = statusOf(ESTABLISHMENT_STATUS, e.status);
-                  return (
-                    <TableRow key={e.id}>
-                      <TableCell className="font-medium">{e.name}</TableCell>
-                      <TableCell>{e.city || "-"}</TableCell>
-                      <TableCell>{e.email || e.phone || "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant={s.variant}>{s.label}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
+              <TableHeader><TableRow><TableHead>{t("est.table.name")}</TableHead><TableHead>{t("est.table.city")}</TableHead><TableHead>{t("est.table.contact")}</TableHead><TableHead>{t("est.table.status")}</TableHead></TableRow></TableHeader>
+              <TableBody>{establishments.map((e) => { const s = statusOf(ESTABLISHMENT_STATUS, e.status); return (<TableRow key={e.id}><TableCell className="font-medium">{e.name}</TableCell><TableCell>{e.city || "-"}</TableCell><TableCell>{e.email || e.phone || "-"}</TableCell><TableCell><Badge variant={s.variant}>{s.label}</Badge></TableCell></TableRow>); })}</TableBody>
             </Table>
           )}
         </CardContent>

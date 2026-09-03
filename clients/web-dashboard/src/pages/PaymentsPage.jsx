@@ -253,9 +253,7 @@ export default function PaymentsPage() {
                   onValueChange={(value) => setFee((f) => ({ ...f, establishmentId: value }))}
                 >
                   <SelectTrigger id="feeEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement">
-                      {(value) => establishments.find((e) => e.id === value)?.name || "Choisir un etablissement"}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir un etablissement" />
                   </SelectTrigger>
                   <SelectContent>
                     {establishments.map((e) => (
@@ -270,13 +268,7 @@ export default function PaymentsPage() {
                 <Label htmlFor="feeClass">Classe (optionnel)</Label>
                 <Select value={fee.classId} onValueChange={(value) => setFee((f) => ({ ...f, classId: value }))}>
                   <SelectTrigger id="feeClass" className="w-full">
-                    <SelectValue placeholder="Toutes les classes">
-                      {(value) =>
-                        value === NO_CLASS_VALUE || !value
-                          ? "Toutes les classes"
-                          : classes.find((c) => c.id === value)?.name || "Toutes les classes"
-                      }
-                    </SelectValue>
+                    <SelectValue placeholder="Toutes les classes" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_CLASS_VALUE}>Toutes les classes</SelectItem>
@@ -344,9 +336,7 @@ export default function PaymentsPage() {
                 <Label htmlFor="tariffEstablishment">Etablissement</Label>
                 <Select value={tariffEstablishmentId} onValueChange={(value) => loadTariffs(value, tariffYear)}>
                   <SelectTrigger id="tariffEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement">
-                      {(value) => establishments.find((e) => e.id === value)?.name || "Choisir un etablissement"}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir un etablissement" />
                   </SelectTrigger>
                   <SelectContent>
                     {establishments.map((e) => (
@@ -415,9 +405,7 @@ export default function PaymentsPage() {
                   onValueChange={(value) => loadCashFeeSchedules(value, cash.academicYear)}
                 >
                   <SelectTrigger id="cashEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement">
-                      {(value) => establishments.find((e) => e.id === value)?.name || "Choisir un etablissement"}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir un etablissement" />
                   </SelectTrigger>
                   <SelectContent>
                     {establishments.map((e) => (
@@ -432,9 +420,7 @@ export default function PaymentsPage() {
                 <Label htmlFor="cashClass">Classe</Label>
                 <Select value={cash.classId} onValueChange={loadCashClassRoster} disabled={!cash.establishmentId}>
                   <SelectTrigger id="cashClass" className="w-full">
-                    <SelectValue placeholder="Choisir une classe">
-                      {(value) => classes.find((c) => c.id === value)?.name || "Choisir une classe"}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir une classe" />
                   </SelectTrigger>
                   <SelectContent>
                     {classes
@@ -455,12 +441,7 @@ export default function PaymentsPage() {
                   disabled={!cash.classId}
                 >
                   <SelectTrigger id="cashStudent" className="w-full">
-                    <SelectValue placeholder="Choisir un eleve">
-                      {(value) => {
-                        const s = cashStudents.find((st) => st.id === value);
-                        return s ? `${s.firstName} ${s.lastName}` : "Choisir un eleve";
-                      }}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir un eleve" />
                   </SelectTrigger>
                   <SelectContent>
                     {cashStudents.length === 0 && (
@@ -485,14 +466,7 @@ export default function PaymentsPage() {
                   disabled={!cash.establishmentId}
                 >
                   <SelectTrigger id="cashTariff" className="w-full">
-                    <SelectValue placeholder="Choisir un tarif">
-                      {(value) => {
-                        const f = cashFeeSchedules.find((sch) => sch.id === value);
-                        return f
-                          ? `${f.label} - ${Number(f.amount).toLocaleString("fr-FR")} ${f.currency}`
-                          : "Choisir un tarif";
-                      }}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir un tarif" />
                   </SelectTrigger>
                   <SelectContent>
                     {cashFeeSchedules.length === 0 && (
@@ -567,9 +541,7 @@ export default function PaymentsPage() {
                   onValueChange={(value) => setSalary((s) => ({ ...s, staffUserId: value }))}
                 >
                   <SelectTrigger id="salaryStaff" className="w-full">
-                    <SelectValue placeholder="Choisir une personne">
-                      {(value) => staff.find((u) => u.id === value)?.fullName || "Choisir une personne"}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir une personne" />
                   </SelectTrigger>
                   <SelectContent>
                     {staff.map((u) => (
@@ -587,9 +559,7 @@ export default function PaymentsPage() {
                   onValueChange={(value) => setSalary((s) => ({ ...s, establishmentId: value }))}
                 >
                   <SelectTrigger id="salaryEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement">
-                      {(value) => establishments.find((e) => e.id === value)?.name || "Choisir un etablissement"}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir un etablissement" />
                   </SelectTrigger>
                   <SelectContent>
                     {establishments.map((e) => (

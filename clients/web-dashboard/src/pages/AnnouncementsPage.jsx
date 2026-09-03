@@ -104,12 +104,7 @@ export default function AnnouncementsPage() {
                   <Label htmlFor="groupClassId">Classe</Label>
                   <Select value={groupClassId} onValueChange={setGroupClassId}>
                     <SelectTrigger id="groupClassId" className="w-full">
-                      <SelectValue placeholder="Choisir une classe">
-                        {(value) => {
-                          const c = classes.find((cl) => cl.id === value);
-                          return c ? classLabel(c) : "Choisir une classe";
-                        }}
-                      </SelectValue>
+                      <SelectValue placeholder="Choisir une classe" />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map((c) => (
@@ -162,12 +157,7 @@ export default function AnnouncementsPage() {
                 <Label htmlFor="classId">Classe</Label>
                 <Select value={classId} onValueChange={setClassId}>
                   <SelectTrigger id="classId" className="w-full">
-                    <SelectValue placeholder="Choisir une classe">
-                      {(value) => {
-                        const c = classes.find((cl) => cl.id === value);
-                        return c ? classLabel(c) : "Choisir une classe";
-                      }}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir une classe" />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => (

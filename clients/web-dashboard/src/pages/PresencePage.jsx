@@ -174,12 +174,7 @@ export default function PresencePage() {
               <Label htmlFor="classId">Classe</Label>
               <Select value={classId} onValueChange={setClassId}>
                 <SelectTrigger id="classId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe">
-                    {(value) => {
-                      const c = classes.find((cl) => cl.id === value);
-                      return c ? classLabel(c) : "Choisir une classe";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir une classe" />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -207,12 +202,7 @@ export default function PresencePage() {
                     disabled={!classId}
                   >
                     <SelectTrigger id="absenceStudentId" className="w-full">
-                      <SelectValue placeholder="Choisir un eleve">
-                        {(value) => {
-                          const s = classStudents.find((st) => st.id === value);
-                          return s ? `${s.firstName} ${s.lastName}` : "Choisir un eleve";
-                        }}
-                      </SelectValue>
+                      <SelectValue placeholder="Choisir un eleve" />
                     </SelectTrigger>
                     <SelectContent>
                       {classStudents.map((s) => (

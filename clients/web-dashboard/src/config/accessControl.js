@@ -21,4 +21,5 @@ export const ROUTE_ACCESS = {
   "/fees": ["PARENT"],
   "/design-samples": ["ADMINISTRATEUR"],
   "/school-ids": ["ADMINISTRATEUR"],
+  "/timetable": ["ADMINISTRATEUR", "DIRECTEUR", "ENSEIGNANT", "PARENT"],
 };

@@ -3,7 +3,7 @@
 # Execute automatiquement au premier demarrage du conteneur postgres (docker-entrypoint-initdb.d).
 set -e
 
-DATABASES="sm_auth_db sm_registration_db sm_payment_db sm_presence_db sm_reportcard_db sm_notification_db sm_userstatus_db sm_schoolid_db sm_admin_db sm_analytics_db sm_pedagogic_db"
+DATABASES="sm_auth_db sm_registration_db sm_payment_db sm_presence_db sm_reportcard_db sm_notification_db sm_userstatus_db sm_schoolid_db sm_admin_db sm_analytics_db sm_pedagogic_db sm_timetable_db"
 
 for DB in $DATABASES; do
   echo "Creation de la base : $DB"

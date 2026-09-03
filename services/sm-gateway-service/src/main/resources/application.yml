@@ -19,8 +19,13 @@ spring:
         cors-configurations:
           "[/**]":
             allowedOriginPatterns:
+              - "http://localhost:*"
+              - "http://127.0.0.1:*"
+              - "https://*.trycloudflare.com"
+              - "http://*.trycloudflare.com"
               - "http://localhost:5173"
               - "http://localhost:5174"
+              - "http://localhost:5180"
               - "http://localhost:19006"
             allowedMethods:
               - GET
@@ -31,7 +36,10 @@ spring:
               - OPTIONS
             allowedHeaders:
               - "*"
+            exposedHeaders:
+              - "*"
             allowCredentials: false
+            maxAge: 3600
       # Routage declaratif vers les 12 micro-services metier (section 6.1/6.2).
       # URI statique "http://{nom-du-service-docker-compose}:{port}" plutot que "lb://{service}"
       # (Eureka) : seuls les 5 services Java (auth/registration/payment/admin + ce Gateway)
@@ -89,6 +97,10 @@ spring:
           uri: http://admin-service:8092
           predicates:
             - Path=/api/v1/admin/**
+        - id: timetable-service
+          uri: http://timetable-service:8093
+          predicates:
+            - Path=/api/v1/timetable/**
 
   data:
     redis:
@@ -287,8 +299,63 @@ schoolmanage:
       - method: GET
         path: /api/v1/analytics/export
         roles: [ADMINISTRATEUR]
+      # timetable-service (ported from wyscolars TimeTables kernel - CRUD + simulate)
+      - method: POST
+        path: /api/v1/timetable/class-times
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: PATCH
+        path: /api/v1/timetable/class-times/**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: DELETE
+        path: /api/v1/timetable/class-times/**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/timetable/class-times**
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT, PARENT]
+      - method: POST
+        path: /api/v1/timetable/break-times**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: PATCH
+        path: /api/v1/timetable/break-times/**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: DELETE
+        path: /api/v1/timetable/break-times/**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/timetable/break-times**
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT]
+      - method: POST
+        path: /api/v1/timetable/holidays**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: PATCH
+        path: /api/v1/timetable/holidays/**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: DELETE
+        path: /api/v1/timetable/holidays/**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/timetable/holidays**
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT]
+      - method: POST
+        path: /api/v1/timetable/holiday-classrooms**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/timetable/holiday-classrooms**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: DELETE
+        path: /api/v1/timetable/holiday-classrooms/**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
+      - method: GET
+        path: /api/v1/timetable/classroom/**
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT, PARENT]
+      - method: GET
+        path: /api/v1/timetable/teacher/**
+        roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT]
 
 management:
+  health:
+    redis:
+      enabled: false
   endpoints:
     web:
       exposure:

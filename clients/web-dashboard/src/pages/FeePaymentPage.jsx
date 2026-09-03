@@ -181,12 +181,7 @@ export default function FeePaymentPage() {
               <Label htmlFor="child">Enfant</Label>
               <Select value={selectedChildId} onValueChange={selectChild}>
                 <SelectTrigger id="child" className="w-full">
-                  <SelectValue placeholder="Choisir un enfant">
-                    {(value) => {
-                      const c = children.find((child) => child.id === value);
-                      return c ? `${c.firstName} ${c.lastName}` : "Choisir un enfant";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir un enfant" />
                 </SelectTrigger>
                 <SelectContent>
                   {children.map((c) => (
@@ -236,14 +231,7 @@ export default function FeePaymentPage() {
                   {tariffs && tariffs.length > 0 && (
                     <Select value={selectedFeeScheduleId} onValueChange={selectFeeSchedule}>
                       <SelectTrigger id="feeSchedule" className="w-full">
-                        <SelectValue placeholder="Choisir un tarif">
-                          {(value) => {
-                            const t = tariffs.find((tariff) => tariff.id === value);
-                            return t
-                              ? `${t.label} - ${Number(t.amount).toLocaleString("fr-FR")} ${t.currency}`
-                              : "Choisir un tarif";
-                          }}
-                        </SelectValue>
+                        <SelectValue placeholder="Choisir un tarif" />
                       </SelectTrigger>
                       <SelectContent>
                         {tariffs.map((t) => (

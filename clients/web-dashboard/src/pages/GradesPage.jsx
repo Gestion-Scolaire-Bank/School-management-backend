@@ -198,12 +198,7 @@ export default function GradesPage() {
                 onValueChange={(value) => setGrade((g) => ({ ...g, class_id: value, subject_id: "", student_id: "" }))}
               >
                 <SelectTrigger id="class_id" className="w-full">
-                  <SelectValue placeholder="Choisir une classe">
-                    {(value) => {
-                      const c = classes.find((cl) => cl.id === value);
-                      return c ? classLabel(c) : "Choisir une classe";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir une classe" />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -222,12 +217,7 @@ export default function GradesPage() {
                 disabled={!grade.class_id}
               >
                 <SelectTrigger id="student_id" className="w-full">
-                  <SelectValue placeholder={grade.class_id ? "Choisir un eleve" : "Choisissez d'abord une classe"}>
-                    {(value) => {
-                      const s = gradeClassStudents.find((st) => st.id === value);
-                      return s ? studentLabel(s) : "Choisir un eleve";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder={grade.class_id ? "Choisir un eleve" : "Choisissez d'abord une classe"} />
                 </SelectTrigger>
                 <SelectContent>
                   {grade.class_id && gradeClassStudents.length === 0 && (
@@ -263,9 +253,7 @@ export default function GradesPage() {
                 <SelectTrigger id="subject_id" className="w-full">
                   <SelectValue
                     placeholder={grade.class_id ? "Choisir une matiere" : "Choisissez d'abord une classe"}
-                  >
-                    {(value) => gradeClassSubjects.find((cs) => cs.subjectId === value)?.subjectName || "Choisir une matiere"}
-                  </SelectValue>
+                   />
                 </SelectTrigger>
                 <SelectContent>
                   {gradeClassSubjects.length === 0 && (
@@ -291,9 +279,7 @@ export default function GradesPage() {
                 <SelectTrigger id="evaluation_id" className="w-full">
                   <SelectValue
                     placeholder={grade.subject_id ? "Aucune" : "Choisissez une matiere d'abord"}
-                  >
-                    {(value) => classEvaluations.find((e) => e.id === value)?.title || "Aucune"}
-                  </SelectValue>
+                   />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Aucune (saisie libre)</SelectItem>
@@ -370,12 +356,7 @@ export default function GradesPage() {
               <Label htmlFor="generateClassId">Classe</Label>
               <Select value={generateClassId} onValueChange={setGenerateClassId}>
                 <SelectTrigger id="generateClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe">
-                    {(value) => {
-                      const c = classes.find((cl) => cl.id === value);
-                      return c ? classLabel(c) : "Choisir une classe";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir une classe" />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -422,12 +403,7 @@ export default function GradesPage() {
               <Label htmlFor="summaryClassId">Classe</Label>
               <Select value={summaryClassId} onValueChange={setSummaryClassId}>
                 <SelectTrigger id="summaryClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe">
-                    {(value) => {
-                      const c = classes.find((cl) => cl.id === value);
-                      return c ? classLabel(c) : "Choisir une classe";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir une classe" />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (

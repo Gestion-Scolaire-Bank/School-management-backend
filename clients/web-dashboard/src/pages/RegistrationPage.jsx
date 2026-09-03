@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
+import { useI18n } from "@/lib/i18n";
 import FileDropzone from "@/components/FileDropzone";
 import { REGISTRATION_STATUS, statusOf } from "@/lib/status";
 import FormCard from '@/components/FormCard';
@@ -62,6 +63,7 @@ function classLabel(c) {
 // classId/establishmentId sont desormais des references validees aupres d'admin-service
 // (plus de champ texte libre "className") - cf. chantier de coherence des donnees de reference.
 export default function RegistrationPage() {
+  const { t } = useI18n();
   const [classes, setClasses] = useState([]);
   const [establishments, setEstablishments] = useState([]);
 
@@ -321,12 +323,7 @@ export default function RegistrationPage() {
                 <Label htmlFor="classId">Classe</Label>
                 <Select value={student.classId} onValueChange={(value) => setStudent((s) => ({ ...s, classId: value }))}>
                   <SelectTrigger id="classId" className="w-full">
-                    <SelectValue placeholder="Choisir une classe">
-                      {(value) => {
-                        const c = classes.find((cl) => cl.id === value);
-                        return c ? classLabel(c) : "Choisir une classe";
-                      }}
-                    </SelectValue>
+                    <SelectValue placeholder="Choisir une classe" />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.length === 0 && (
@@ -507,24 +504,22 @@ export default function RegistrationPage() {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="staffEstablishmentId">Etablissement</Label>
-                <Select
+                <Label htmlFor="staffEstablishmentId">{t("reg.field.school") || "School"}</Label>
+                <select
+                  id="staffEstablishmentId"
                   value={staff.establishmentId}
-                  onValueChange={(value) => setStaff((s) => ({ ...s, establishmentId: value }))}
+                  onChange={(e) => setStaff((s) => ({ ...s, establishmentId: e.target.value }))}
+                  className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  required
                 >
-                  <SelectTrigger id="staffEstablishmentId" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement">
-                      {(value) => establishments.find((e) => e.id === value)?.name || "Choisir un etablissement"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {establishments.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">{t("reg.field.school.placeholder") || "Select a school"}</option>
+                  {establishments.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
+                {establishments.length === 0 && <p className="text-xs text-amber-600">{t("classes.field.establishment.empty")}</p>}
               </div>
               <FileDropzone id="cv" label="CV" file={cv} onChange={setCv} />
               <FileDropzone id="diploma" label="Diplome" file={diploma} onChange={setDiploma} />
@@ -603,12 +598,7 @@ export default function RegistrationPage() {
                     <Label htmlFor="newClassId">Nouvelle classe</Label>
                     <Select value={newClassId} onValueChange={setNewClassId}>
                       <SelectTrigger id="newClassId" className="w-full">
-                        <SelectValue placeholder="Choisir une classe">
-                          {(value) => {
-                            const c = classes.find((cl) => cl.id === value);
-                            return c ? classLabel(c) : "Choisir une classe";
-                          }}
-                        </SelectValue>
+                        <SelectValue placeholder="Choisir une classe" />
                       </SelectTrigger>
                       <SelectContent>
                         {classesForReassign.map((c) => (
@@ -652,12 +642,7 @@ export default function RegistrationPage() {
               <Label htmlFor="rosterClassId">Classe</Label>
               <Select value={rosterClassId} onValueChange={setRosterClassId}>
                 <SelectTrigger id="rosterClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe">
-                    {(value) => {
-                      const c = classes.find((cl) => cl.id === value);
-                      return c ? classLabel(c) : "Choisir une classe";
-                    }}
-                  </SelectValue>
+                  <SelectValue placeholder="Choisir une classe" />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
