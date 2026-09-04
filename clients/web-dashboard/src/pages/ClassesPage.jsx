@@ -29,6 +29,7 @@ export default function ClassesPage() {
   const [establishments, setEstablishments] = useState([]);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [teachers, setTeachers] = useState([]);
 
   const [classForm, setClassForm] = useState(EMPTY_CLASS);
   const [classStatus, setClassStatus] = useState(null);
@@ -54,9 +55,14 @@ export default function ClassesPage() {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
   function loadReferenceData() {
-    apiClient.get("/api/v1/admin/establishments").then((res) => setEstablishments(res.data || [])).catch(() => setEstablishments([]));
-    apiClient.get("/api/v1/admin/classes").then((res) => setClasses(res.data || [])).catch(() => setClasses([]));
-    apiClient.get("/api/v1/admin/subjects").then((res) => setSubjects(res.data || [])).catch(() => setSubjects([]));
+    // stale-while-revalidate: keep previous lists on error, never wipe to []
+    apiClient.get("/api/v1/admin/establishments").then((res) => setEstablishments(res.data || [])).catch(() => {});
+    apiClient.get("/api/v1/admin/classes").then((res) => setClasses(res.data || [])).catch(() => {});
+    apiClient.get("/api/v1/admin/subjects").then((res) => setSubjects(res.data || [])).catch(() => {});
+    apiClient.get("/api/auth/users").then((res) => {
+      const list = (res.data || []).filter((u) => u.role === "ENSEIGNANT");
+      setTeachers(list);
+    }).catch(() => {});
   }
 
   useEffect(() => { loadReferenceData(); }, []);
@@ -101,10 +107,10 @@ export default function ClassesPage() {
 
   function loadProgramme(classId) {
     setProgrammeClassId(classId);
-    setProgramme(null);
-    if (!classId) return;
+    if (!classId) { setProgramme(null); return; }
+    // keep previous programme visible while loading (no flicker on select change/blur)
     setLoadingProgramme(true);
-    apiClient.get(`/api/v1/admin/classes/${classId}/subjects`).then((res) => setProgramme(res.data || [])).catch(() => setProgramme([])).finally(() => setLoadingProgramme(false));
+    apiClient.get(`/api/v1/admin/classes/${classId}/subjects`).then((res) => setProgramme(res.data || [])).catch(() => {}).finally(() => setLoadingProgramme(false));
   }
 
   async function handleAssignSubject(e) {
@@ -136,10 +142,10 @@ export default function ClassesPage() {
 
   function loadAssignmentsByClass(classId) {
     setAssignmentClassId(classId);
-    setAssignmentsList(null);
-    if (!classId) return;
+    if (!classId) { setAssignmentsList(null); return; }
+    // keep previous list visible while loading (no flicker on select change/blur)
     setLoadingAssignments(true);
-    apiClient.get("/api/v1/admin/teacher-assignments", { params: { classId } }).then((res) => setAssignmentsList(res.data || [])).catch(() => setAssignmentsList([])).finally(() => setLoadingAssignments(false));
+    apiClient.get("/api/v1/admin/teacher-assignments", { params: { classId } }).then((res) => setAssignmentsList(res.data || [])).catch(() => {}).finally(() => setLoadingAssignments(false));
   }
 
   function subjectName(subjectId) { return subjects.find((s) => s.id === subjectId)?.name || subjectId; }
@@ -166,13 +172,13 @@ export default function ClassesPage() {
                   id="classEstablishment"
                   value={classForm.establishmentId}
                   onChange={(e) => setClassForm((f) => ({ ...f, establishmentId: e.target.value }))}
-                  className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
                   required
                 >
                   <option value="">{t("classes.field.establishment.placeholder")}</option>
                   {establishments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
-                {establishments.length === 0 && <p className="text-xs text-amber-600">{t("classes.field.establishment.empty")}</p>}
+                {establishments.length === 0 && <p className="text-xs text-amber-600 dark:text-amber-400">{t("classes.field.establishment.empty")}</p>}
                 {classForm.establishmentId && <p className="text-xs text-muted-foreground">Selected: {establishments.find(e=>e.id===classForm.establishmentId)?.name || classForm.establishmentId}</p>}
               </div>
               <div className="space-y-1.5">
@@ -283,7 +289,21 @@ export default function ClassesPage() {
               <form onSubmit={handleAssignmentSubmit} className="grid grid-cols-1 gap-3 border-b border-border pb-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="assignTeacherId">{t("classes.assignment.field.teacher")}</Label>
-                  <Input id="assignTeacherId" value={assignment.teacherId} onChange={(e) => setAssignment((a) => ({ ...a, teacherId: e.target.value }))} required />
+                  <select
+                    id="assignTeacherId"
+                    value={assignment.teacherId}
+                    onChange={(e) => setAssignment((a) => ({ ...a, teacherId: e.target.value }))}
+                    className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+                    required
+                  >
+                    <option value="">{t("classes.assignment.field.teacher.placeholder")}</option>
+                    {teachers.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.fullName || `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email} ({u.email})
+                      </option>
+                    ))}
+                  </select>
+                  {teachers.length === 0 && <p className="text-xs text-muted-foreground">{t("classes.assignment.field.teacher.empty")}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="assignClassId">{t("classes.assignment.field.class")}</Label>
@@ -319,7 +339,11 @@ export default function ClassesPage() {
             {assignmentsList && assignmentsList.length > 0 && (
               <Table>
                 <TableHeader><TableRow><TableHead>Teacher</TableHead><TableHead>Subject</TableHead><TableHead>Year</TableHead></TableRow></TableHeader>
-                <TableBody>{assignmentsList.map((a) => <TableRow key={a.id}><TableCell className="font-mono text-xs">{a.teacherId}</TableCell><TableCell>{subjectName(a.subjectId)}</TableCell><TableCell>{a.academicYear}</TableCell></TableRow>)}</TableBody>
+                <TableBody>{assignmentsList.map((a) => {
+                  const tchr = teachers.find((t) => t.id === a.teacherId);
+                  const label = tchr ? (tchr.fullName || `${tchr.firstName||""} ${tchr.lastName||""}`.trim() || tchr.email) : a.teacherId.slice(0,8);
+                  return <TableRow key={a.id}><TableCell className="text-xs">{label}</TableCell><TableCell>{subjectName(a.subjectId)}</TableCell><TableCell>{a.academicYear}</TableCell></TableRow>;
+                })}</TableBody>
               </Table>
             )}
           </CardContent>

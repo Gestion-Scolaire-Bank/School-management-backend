@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 
 export default function DesignSamplePage() {
+  const { t } = useI18n();
   const [schoolName, setSchoolName] = useState("Groupe Scolaire Bilingue");
   const [accentColor, setAccentColor] = useState("#0f4c81");
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
@@ -70,20 +72,20 @@ export default function DesignSamplePage() {
     const drawTextAndLogo = (img = null) => {
       if (img) {
         ctx.drawImage(img, 15, 10, 50, 50);
-        ctx.fillText(headerTitle + " - Carte Scolaire", 80, 35);
+        ctx.fillText(t("design.canvas.header", { school: headerTitle }), 80, 35);
       } else {
-        ctx.fillText(headerTitle + " - Carte Scolaire", 20, 35);
+        ctx.fillText(t("design.canvas.header", { school: headerTitle }), 20, 35);
       }
 
       // Draw student mock details
       ctx.fillStyle = textColor;
       ctx.font = "16px sans-serif";
-      ctx.fillText("Nom : FOTSO Marie", 20, 110);
-      ctx.fillText("Classe : 3eme B", 20, 145);
-      ctx.fillText("Ne(e) le : 2011-06-15", 20, 180);
-      ctx.fillText("N. carte : SM-2026-F8D2E1", 20, 215);
-      ctx.fillText("Identifiant eleve : STU-209384", 20, 250);
-      ctx.fillText("Valide jusqu'au : 2027-06-30", 20, 285);
+      ctx.fillText(t("design.canvas.name"), 20, 110);
+      ctx.fillText(t("design.canvas.class"), 20, 145);
+      ctx.fillText(t("design.canvas.dob"), 20, 180);
+      ctx.fillText(t("design.canvas.cardNumber"), 20, 215);
+      ctx.fillText(t("design.canvas.studentId"), 20, 250);
+      ctx.fillText(t("design.canvas.validUntil"), 20, 285);
 
       // Draw student photo frame placeholder
       ctx.strokeStyle = accentColor;
@@ -94,15 +96,15 @@ export default function DesignSamplePage() {
       ctx.fillStyle = textColor;
       ctx.font = "12px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Cadre Photo", 540, 145);
+      ctx.fillText(t("design.canvas.photoFrame"), 540, 145);
       ctx.fillText("(120 x 140)", 540, 165);
 
       // Draw QR Code frame placeholder
       ctx.strokeStyle = "#888888";
       ctx.strokeRect(480, 240, 120, 120);
       ctx.fillStyle = textColor;
-      ctx.fillText("QR Code", 540, 290);
-      ctx.fillText("(Validation)", 540, 310);
+      ctx.fillText(t("design.canvas.qr"), 540, 290);
+      ctx.fillText(t("design.canvas.qrHint"), 540, 310);
     };
 
     if (logoUrl) {
@@ -139,9 +141,9 @@ export default function DesignSamplePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Modèles de Cartes Scolaires</h2>
+        <h2 className="text-2xl font-semibold">{t("design.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Visualisez, personnalisez et configurez la charte graphique des cartes d'identité de l'établissement.
+          {t("design.subtitle")}
         </p>
       </div>
 
@@ -152,24 +154,24 @@ export default function DesignSamplePage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Palette className="size-4 text-primary" />
-                Personnalisation du Modèle
+                {t("design.form.title")}
               </CardTitle>
-              <CardDescription>Configurez les styles appliqués aux cartes générées.</CardDescription>
+              <CardDescription>{t("design.form.subtitle")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="schoolName">Nom de l'établissement</Label>
+                <Label htmlFor="schoolName">{t("design.field.schoolName")}</Label>
                 <Input
                   id="schoolName"
                   value={schoolName}
                   onChange={(e) => setSchoolName(e.target.value)}
-                  placeholder="Ex: Lycée Classique"
+                  placeholder={t("design.field.schoolName.placeholder")}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="accentColor">Couleur Principale</Label>
+                  <Label htmlFor="accentColor">{t("design.field.accent")}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="accentColor"
@@ -188,7 +190,7 @@ export default function DesignSamplePage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="backgroundColor">Couleur de Fond</Label>
+                  <Label htmlFor="backgroundColor">{t("design.field.background")}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="backgroundColor"
@@ -208,14 +210,14 @@ export default function DesignSamplePage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="logo">Logo de l'école (PNG transparent recommandé)</Label>
+                <Label htmlFor="logo">{t("design.field.logo")}</Label>
                 <div className="flex items-center gap-4">
                   <Label
                     htmlFor="logo"
                     className="flex flex-col items-center justify-center border border-dashed border-border hover:bg-muted/50 transition-colors rounded-lg px-4 py-6 w-full cursor-pointer text-sm gap-2"
                   >
                     <Upload className="size-5 text-muted-foreground" />
-                    <span>Sélectionner une image</span>
+                    <span>{t("design.field.logo.select")}</span>
                     {logoFile && (
                       <span className="text-xs text-primary font-medium truncate max-w-[200px]">
                         {logoFile.name}
@@ -234,7 +236,7 @@ export default function DesignSamplePage() {
 
               <Button onClick={handleDownload} className="w-full flex items-center justify-center gap-2">
                 <Download className="size-4" />
-                Télécharger le gabarit (PNG)
+                {t("design.download")}
               </Button>
             </CardContent>
           </Card>
@@ -243,9 +245,9 @@ export default function DesignSamplePage() {
             <CardContent className="pt-4 flex gap-3 text-sm text-primary">
               <ShieldCheck className="size-5 shrink-0" />
               <div>
-                <p className="font-semibold">Charte Graphique Automatique</p>
+                <p className="font-semibold">{t("design.note.title")}</p>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  Les couleurs et le logo configurés ici seront appliqués aux cartes d'identité générées ou réémises pour chaque élève.
+                  {t("design.note.text")}
                 </p>
               </div>
             </CardContent>
@@ -256,8 +258,8 @@ export default function DesignSamplePage() {
         <div className="lg:col-span-7 flex flex-col justify-start">
           <Card className="overflow-hidden">
             <CardHeader>
-              <CardTitle className="text-base">Aperçu Réel</CardTitle>
-              <CardDescription>Rendu exact en dimensions standards (640 x 400 px).</CardDescription>
+              <CardTitle className="text-base">{t("design.preview.title")}</CardTitle>
+              <CardDescription>{t("design.preview.subtitle")}</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center bg-muted/30 p-6 overflow-x-auto">
               <div className="border border-border shadow-lg rounded-md overflow-hidden bg-white shrink-0">

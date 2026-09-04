@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Wallet, Receipt } from "lucide-react";
 import apiClient from "../api/client";
 import { getUser } from "../api/auth";
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import { PAYMENT_STATUS, statusOf } from "@/lib/status";
+import { useI18n } from "@/lib/i18n";
 
 const EMPTY_FEE = { establishmentId: "", classId: "", academicYear: "2025-2026", label: "", amount: "" };
 const NO_CLASS_VALUE = "__all__";
@@ -26,6 +27,7 @@ const EMPTY_CASH = { establishmentId: "", classId: "", studentId: "", academicYe
 // de GlobalConfig : desormais un vrai tarif par etablissement/classe/annee, que le parent
 // peut consulter avant de payer (cf. FeePaymentPage.jsx).
 export default function PaymentsPage() {
+  const { t } = useI18n();
   const isAdmin = getUser()?.role === "ADMINISTRATEUR";
 
   const [report, setReport] = useState(null);
@@ -53,9 +55,17 @@ export default function PaymentsPage() {
   const [cash, setCash] = useState(EMPTY_CASH);
   const [cashStudents, setCashStudents] = useState([]);
   const [cashFeeSchedules, setCashFeeSchedules] = useState([]);
+  const [loadingCashRoster, setLoadingCashRoster] = useState(false);
+  const [loadingCashSchedules, setLoadingCashSchedules] = useState(false);
   const [submittingCash, setSubmittingCash] = useState(false);
   const [cashError, setCashError] = useState(null);
   const [cashTransaction, setCashTransaction] = useState(null);
+  // request guards: ignore out-of-order responses so fast select changes
+  // never display data for a previously selected input (stale-while-revalidate)
+  const cashRosterReq = useRef(0);
+  const cashSchedReq = useRef(0);
+  const tariffReq = useRef(0);
+  const tariffDebounce = useRef(null);
 
   useEffect(() => {
     apiClient
@@ -63,22 +73,26 @@ export default function PaymentsPage() {
       .then((res) => setReport(res.data))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
+    // reference lists: keep previous data on error, never wipe to []
     apiClient
       .get("/api/v1/admin/establishments")
       .then((res) => setEstablishments(res.data || []))
-      .catch(() => setEstablishments([]));
+      .catch(() => {});
     apiClient
       .get("/api/v1/admin/classes")
       .then((res) => setClasses(res.data || []))
-      .catch(() => setClasses([]));
+      .catch(() => {});
     if (isAdmin) {
       apiClient
         .get("/api/auth/users")
         .then((res) => setStaff((res.data || []).filter((u) => STAFF_ROLES.includes(u.role))))
-        .catch(() => setStaff([]));
+        .catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // clear pending debounce on unmount
+  useEffect(() => () => clearTimeout(tariffDebounce.current), []);
 
   async function handleSalarySubmit(e) {
     e.preventDefault();
@@ -94,7 +108,7 @@ export default function PaymentsPage() {
       setSalaryTransaction(data);
       setSalary((s) => ({ ...EMPTY_SALARY, establishmentId: s.establishmentId, provider: s.provider }));
     } catch (err) {
-      setSalaryError(err.response?.data?.message || "Impossible d'initier le paiement du salaire.");
+      setSalaryError(err.response?.data?.message || t("pay.salary.error"));
     } finally {
       setSubmittingSalary(false);
     }
@@ -107,7 +121,7 @@ export default function PaymentsPage() {
       const { data } = await apiClient.get(`/api/v1/payments/${salaryTransaction.id}/status`);
       setSalaryTransaction(data);
     } catch {
-      setSalaryError("Impossible de rafraichir le statut.");
+      setSalaryError(t("pay.salary.statusError"));
     } finally {
       setCheckingSalaryStatus(false);
     }
@@ -115,23 +129,28 @@ export default function PaymentsPage() {
 
   function loadCashClassRoster(classId) {
     setCash((c) => ({ ...c, classId, studentId: "" }));
-    setCashStudents([]);
     if (!classId) return;
+    // keep previous roster visible while loading; ignore stale responses
+    const id = ++cashRosterReq.current;
+    setLoadingCashRoster(true);
     apiClient
       .get(`/api/v1/registrations/class/${classId}`)
-      .then((res) => setCashStudents(res.data || []))
-      .catch(() => setCashStudents([]));
+      .then((res) => { if (cashRosterReq.current === id) setCashStudents(res.data || []); })
+      .catch(() => {})
+      .finally(() => { if (cashRosterReq.current === id) setLoadingCashRoster(false); });
   }
 
   function loadCashFeeSchedules(establishmentId, academicYear) {
     setCash((c) => ({ ...c, establishmentId, classId: "", studentId: "", feeScheduleId: "", amount: "" }));
-    setCashStudents([]);
-    setCashFeeSchedules([]);
     if (!establishmentId || !academicYear) return;
+    // keep previous schedules visible while loading; ignore stale responses
+    const id = ++cashSchedReq.current;
+    setLoadingCashSchedules(true);
     apiClient
       .get("/api/v1/admin/fee-schedules", { params: { establishmentId, academicYear } })
-      .then((res) => setCashFeeSchedules(res.data || []))
-      .catch(() => setCashFeeSchedules([]));
+      .then((res) => { if (cashSchedReq.current === id) setCashFeeSchedules(res.data || []); })
+      .catch(() => {})
+      .finally(() => { if (cashSchedReq.current === id) setLoadingCashSchedules(false); });
   }
 
   async function handleCashSubmit(e) {
@@ -154,7 +173,7 @@ export default function PaymentsPage() {
       setCash((c) => ({ ...EMPTY_CASH, establishmentId: c.establishmentId, academicYear: c.academicYear }));
       setCashStudents([]);
     } catch (err) {
-      setCashError(err.response?.data?.message || "Impossible d'enregistrer ce paiement en especes.");
+      setCashError(err.response?.data?.message || t("pay.cash.error"));
     } finally {
       setSubmittingCash(false);
     }
@@ -167,7 +186,7 @@ export default function PaymentsPage() {
       const url = URL.createObjectURL(data);
       window.open(url, "_blank", "noreferrer");
     } catch {
-      setCashError("Recu indisponible pour cette transaction.");
+      setCashError(t("pay.cash.receiptError"));
     }
   }
 
@@ -181,13 +200,13 @@ export default function PaymentsPage() {
         classId: fee.classId === NO_CLASS_VALUE ? null : fee.classId || null,
         amount: Number(fee.amount),
       });
-      setFeeStatus({ type: "success", text: "Tarif cree." });
+      setFeeStatus({ type: "success", text: t("pay.fee.success") });
       setFee((f) => ({ ...EMPTY_FEE, establishmentId: f.establishmentId, academicYear: f.academicYear }));
       if (tariffEstablishmentId === fee.establishmentId) {
         loadTariffs(tariffEstablishmentId, tariffYear);
       }
     } catch (err) {
-      setFeeStatus({ type: "error", text: err.response?.data?.message || "Impossible de creer ce tarif." });
+      setFeeStatus({ type: "error", text: err.response?.data?.message || t("pay.fee.error") });
     } finally {
       setSubmittingFee(false);
     }
@@ -196,104 +215,114 @@ export default function PaymentsPage() {
   function loadTariffs(establishmentId, academicYear) {
     setTariffEstablishmentId(establishmentId);
     setTariffYear(academicYear);
-    setTariffs(null);
     if (!establishmentId || !academicYear) return;
+    // keep previous tariffs visible while loading; ignore stale responses
+    const id = ++tariffReq.current;
     setLoadingTariffs(true);
     apiClient
       .get("/api/v1/admin/fee-schedules", { params: { establishmentId, academicYear } })
-      .then((res) => setTariffs(res.data || []))
-      .catch(() => setTariffs([]))
-      .finally(() => setLoadingTariffs(false));
+      .then((res) => { if (tariffReq.current === id) setTariffs(res.data || []); })
+      .catch(() => {})
+      .finally(() => { if (tariffReq.current === id) setLoadingTariffs(false); });
+  }
+
+  // year is typed char by char: debounce so intermediate values (e.g. "2025-")
+  // don't wipe the list with failed requests
+  function handleTariffYearChange(value) {
+    setTariffYear(value);
+    clearTimeout(tariffDebounce.current);
+    tariffDebounce.current = setTimeout(() => {
+      if (tariffEstablishmentId) loadTariffs(tariffEstablishmentId, value);
+    }, 500);
   }
 
   function classNameById(id) {
-    if (!id) return "Toutes les classes";
+    if (!id) return t("pay.fee.field.class.all");
     return classes.find((c) => c.id === id)?.name || id;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Paiements &amp; recettes</h2>
+        <h2 className="text-2xl font-semibold">{t("pay.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Rapport de recettes agrege depuis payment-service, et tarifs attendus par etablissement.
+          {t("pay.subtitle")}
         </p>
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Chargement...</p>}
-      {error && <Alert variant="error">Rapport de recettes indisponible (payment-service injoignable).</Alert>}
+      {loading && <p className="text-sm text-muted-foreground">{t("pay.loading")}</p>}
+      {error && <Alert variant="error">{t("pay.reportError")}</Alert>}
 
       {report && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <StatCard
-            label="Recettes totales"
+            label={t("pay.totalRevenue")}
             value={`${Number(report.totalRevenue ?? 0).toLocaleString("fr-FR")} XAF`}
             icon={Wallet}
             color="emerald"
           />
-          <StatCard label="Transactions" value={report.transactionCount ?? 0} icon={Receipt} color="blue" />
+          <StatCard label={t("pay.transactions")} value={report.transactionCount ?? 0} icon={Receipt} color="blue" />
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Creer un tarif</CardTitle>
+            <CardTitle className="text-base">{t("pay.fee.createTitle")}</CardTitle>
             <CardDescription>
-              Frais de scolarite, inscription... - laissez "Classe" vide pour l'appliquer a toute une
-              annee scolaire.
+              {t("pay.fee.createSubtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleFeeSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="feeEstablishment">Etablissement</Label>
-                <Select
+                <Label htmlFor="feeEstablishment">{t("pay.fee.field.school")}</Label>
+                <select
+                  id="feeEstablishment"
                   value={fee.establishmentId}
-                  onValueChange={(value) => setFee((f) => ({ ...f, establishmentId: value }))}
+                  onChange={(e) => setFee((f) => ({ ...f, establishmentId: e.target.value, classId: "" }))}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+                  required
                 >
-                  <SelectTrigger id="feeEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {establishments.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">{t("pay.fee.field.school.placeholder")}</option>
+                  {establishments.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="feeClass">Classe (optionnel)</Label>
-                <Select value={fee.classId} onValueChange={(value) => setFee((f) => ({ ...f, classId: value }))}>
-                  <SelectTrigger id="feeClass" className="w-full">
-                    <SelectValue placeholder="Toutes les classes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_CLASS_VALUE}>Toutes les classes</SelectItem>
-                    {classes
-                      .filter((c) => c.establishmentId === fee.establishmentId)
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="feeClass">{t("pay.fee.field.class")}</Label>
+                <select
+                  id="feeClass"
+                  value={fee.classId}
+                  onChange={(e) => setFee((f) => ({ ...f, classId: e.target.value }))}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+                >
+                  <option value="">{t("pay.fee.field.class.placeholder")}</option>
+                  <option value={NO_CLASS_VALUE}>{t("pay.fee.field.class.all")}</option>
+                  {classes
+                    .filter((c) => c.establishmentId === fee.establishmentId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="feeLabel">Libelle</Label>
+                <Label htmlFor="feeLabel">{t("pay.fee.field.label")}</Label>
                 <Input
                   id="feeLabel"
-                  placeholder="ex. Trimestre 1"
+                  placeholder={t("pay.fee.field.label.placeholder")}
                   value={fee.label}
                   onChange={(e) => setFee((f) => ({ ...f, label: e.target.value }))}
                   required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="feeAmount">Montant (XAF)</Label>
+                <Label htmlFor="feeAmount">{t("pay.fee.field.amount")}</Label>
                 <Input
                   id="feeAmount"
                   type="number"
@@ -304,7 +333,7 @@ export default function PaymentsPage() {
                 />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="feeYear">Annee scolaire</Label>
+                <Label htmlFor="feeYear">{t("pay.fee.field.year")}</Label>
                 <Input
                   id="feeYear"
                   value={fee.academicYear}
@@ -319,7 +348,7 @@ export default function PaymentsPage() {
               )}
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={submittingFee || !fee.establishmentId}>
-                  {submittingFee ? "Creation..." : "Creer le tarif"}
+                  {submittingFee ? t("pay.fee.creating") : t("pay.fee.create")}
                 </Button>
               </div>
             </form>
@@ -328,46 +357,47 @@ export default function PaymentsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Tarifs enregistres</CardTitle>
+            <CardTitle className="text-base">{t("pay.tariffs.title")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-end gap-3">
               <div className="min-w-48 flex-1 space-y-1.5">
-                <Label htmlFor="tariffEstablishment">Etablissement</Label>
-                <Select value={tariffEstablishmentId} onValueChange={(value) => loadTariffs(value, tariffYear)}>
-                  <SelectTrigger id="tariffEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {establishments.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="tariffEstablishment">{t("pay.tariffs.field.school")}</Label>
+                <select
+                  id="tariffEstablishment"
+                  value={tariffEstablishmentId}
+                  onChange={(e) => loadTariffs(e.target.value, tariffYear)}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+                >
+                  <option value="">{t("pay.fee.field.school.placeholder")}</option>
+                  {establishments.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="w-36 space-y-1.5">
-                <Label htmlFor="tariffYear">Annee</Label>
+                <Label htmlFor="tariffYear">{t("pay.tariffs.field.year")}</Label>
                 <Input
                   id="tariffYear"
                   value={tariffYear}
-                  onChange={(e) => loadTariffs(tariffEstablishmentId, e.target.value)}
+                  onChange={(e) => handleTariffYearChange(e.target.value)}
                 />
               </div>
             </div>
 
-            {loadingTariffs && <p className="text-sm text-muted-foreground">Chargement...</p>}
+            {loadingTariffs && <p className="text-sm text-muted-foreground">{t("pay.loading")}</p>}
             {tariffs && tariffs.length === 0 && (
-              <EmptyState icon={Receipt} message="Aucun tarif pour cet etablissement/annee." />
+              <EmptyState icon={Receipt} message={t("pay.tariffs.empty")} />
             )}
             {tariffs && tariffs.length > 0 && (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Libelle</TableHead>
-                    <TableHead>Classe</TableHead>
-                    <TableHead>Montant</TableHead>
+                    <TableHead>{t("pay.tariffs.table.label")}</TableHead>
+                    <TableHead>{t("pay.tariffs.table.class")}</TableHead>
+                    <TableHead>{t("pay.tariffs.table.amount")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -390,100 +420,96 @@ export default function PaymentsPage() {
       {isAdmin && (
         <Card className="max-w-xl">
           <CardHeader>
-            <CardTitle className="text-base">Enregistrer un paiement en especes</CardTitle>
+            <CardTitle className="text-base">{t("pay.cash.title")}</CardTitle>
             <CardDescription>
-              Pour un parent qui paie au secretariat plutot que par Mobile Money - le paiement est
-              marque regle immediatement, sans passer par un fournisseur externe.
+              {t("pay.cash.subtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCashSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="cashEstablishment">Etablissement</Label>
-                <Select
+                <Label htmlFor="cashEstablishment">{t("pay.cash.field.school")}</Label>
+                <select
+                  id="cashEstablishment"
                   value={cash.establishmentId}
-                  onValueChange={(value) => loadCashFeeSchedules(value, cash.academicYear)}
+                  onChange={(e) => loadCashFeeSchedules(e.target.value, cash.academicYear)}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
                 >
-                  <SelectTrigger id="cashEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {establishments.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                      </SelectItem>
+                  <option value="">{t("pay.fee.field.school.placeholder")}</option>
+                  {establishments.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cashClass">{t("pay.cash.field.class")}</Label>
+                <select
+                  id="cashClass"
+                  value={cash.classId}
+                  onChange={(e) => loadCashClassRoster(e.target.value)}
+                  disabled={!cash.establishmentId}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+                >
+                  <option value="">{t("pay.cash.field.class.placeholder")}</option>
+                  {classes
+                    .filter((c) => c.establishmentId === cash.establishmentId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
-                  </SelectContent>
-                </Select>
+                </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cashClass">Classe</Label>
-                <Select value={cash.classId} onValueChange={loadCashClassRoster} disabled={!cash.establishmentId}>
-                  <SelectTrigger id="cashClass" className="w-full">
-                    <SelectValue placeholder="Choisir une classe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes
-                      .filter((c) => c.establishmentId === cash.establishmentId)
-                      .map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="cashStudent">Eleve</Label>
-                <Select
+                <Label htmlFor="cashStudent">{t("pay.cash.field.student")}</Label>
+                <select
+                  id="cashStudent"
                   value={cash.studentId}
-                  onValueChange={(value) => setCash((c) => ({ ...c, studentId: value }))}
+                  onChange={(e) => setCash((c) => ({ ...c, studentId: e.target.value }))}
                   disabled={!cash.classId}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
                 >
-                  <SelectTrigger id="cashStudent" className="w-full">
-                    <SelectValue placeholder="Choisir un eleve" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cashStudents.length === 0 && (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Aucun eleve dans cette classe</div>
-                    )}
-                    {cashStudents.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.firstName} {s.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">{t("pay.cash.field.student.placeholder")}</option>
+                  {cashStudents.length === 0 && !loadingCashRoster && (
+                    <option disabled>{t("pay.cash.empty.students")}</option>
+                  )}
+                  {cashStudents.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.firstName} {s.lastName}
+                    </option>
+                  ))}
+                </select>
+                {loadingCashRoster && <p className="text-xs text-muted-foreground">{t("pay.loading")}</p>}
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="cashTariff">Tarif</Label>
-                <Select
+                <Label htmlFor="cashTariff">{t("pay.cash.field.tariff")}</Label>
+                <select
+                  id="cashTariff"
                   value={cash.feeScheduleId}
-                  onValueChange={(value) => {
+                  onChange={(e) => {
+                    const value = e.target.value;
                     const schedule = cashFeeSchedules.find((f) => f.id === value);
                     setCash((c) => ({ ...c, feeScheduleId: value, amount: schedule ? String(schedule.amount) : c.amount }));
                   }}
                   disabled={!cash.establishmentId}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
                 >
-                  <SelectTrigger id="cashTariff" className="w-full">
-                    <SelectValue placeholder="Choisir un tarif" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cashFeeSchedules.length === 0 && (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                        Aucun tarif pour cet etablissement/annee
-                      </div>
-                    )}
-                    {cashFeeSchedules.map((f) => (
-                      <SelectItem key={f.id} value={f.id}>
-                        {f.label} - {Number(f.amount).toLocaleString("fr-FR")} {f.currency}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">{t("pay.cash.field.tariff.placeholder")}</option>
+                  {cashFeeSchedules.length === 0 && !loadingCashSchedules && (
+                    <option disabled>{t("pay.cash.empty.tariffs")}</option>
+                  )}
+                  {cashFeeSchedules.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.label} - {Number(f.amount).toLocaleString("fr-FR")} {f.currency}
+                    </option>
+                  ))}
+                </select>
+                {loadingCashSchedules && <p className="text-xs text-muted-foreground">{t("pay.loading")}</p>}
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="cashAmount">Montant recu (XAF)</Label>
+                <Label htmlFor="cashAmount">{t("pay.cash.field.amount")}</Label>
                 <Input
                   id="cashAmount"
                   type="number"
@@ -493,7 +519,7 @@ export default function PaymentsPage() {
                   disabled={!cash.feeScheduleId}
                   required
                 />
-                <p className="text-xs text-muted-foreground">Un versement partiel inferieur au tarif est accepte.</p>
+                <p className="text-xs text-muted-foreground">{t("pay.cash.field.amount.hint")}</p>
               </div>
               {cashError && (
                 <Alert variant="error" className="sm:col-span-2">
@@ -502,7 +528,7 @@ export default function PaymentsPage() {
               )}
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={submittingCash || !cash.studentId || !cash.feeScheduleId}>
-                  {submittingCash ? "Enregistrement..." : "Enregistrer le paiement"}
+                  {submittingCash ? t("pay.cash.submitting") : t("pay.cash.submit")}
                 </Button>
               </div>
             </form>
@@ -511,14 +537,14 @@ export default function PaymentsPage() {
               <div className="mt-4 space-y-2 rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span>
-                    Transaction <span className="font-mono">{cashTransaction.id}</span>
+                    {t("pay.cash.transaction")} <span className="font-mono">{cashTransaction.id}</span>
                   </span>
                   <Badge variant={statusOf(PAYMENT_STATUS, cashTransaction.status).variant}>
                     {statusOf(PAYMENT_STATUS, cashTransaction.status).label}
                   </Badge>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => handleDownloadCashReceipt(cashTransaction.id)}>
-                  Telecharger le recu
+                  {t("pay.cash.receipt")}
                 </Button>
               </div>
             )}
@@ -529,19 +555,19 @@ export default function PaymentsPage() {
       {isAdmin && (
         <Card className="max-w-xl">
           <CardHeader>
-            <CardTitle className="text-base">Payer un salaire</CardTitle>
-            <CardDescription>Verser un salaire via Mobile Money a un membre du personnel.</CardDescription>
+            <CardTitle className="text-base">{t("pay.salary.title")}</CardTitle>
+            <CardDescription>{t("pay.salary.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSalarySubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="salaryStaff">Membre du personnel</Label>
+                <Label htmlFor="salaryStaff">{t("pay.salary.field.staff")}</Label>
                 <Select
                   value={salary.staffUserId}
                   onValueChange={(value) => setSalary((s) => ({ ...s, staffUserId: value }))}
                 >
                   <SelectTrigger id="salaryStaff" className="w-full">
-                    <SelectValue placeholder="Choisir une personne" />
+                    <SelectValue placeholder={t("pay.salary.field.staff.placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {staff.map((u) => (
@@ -553,25 +579,23 @@ export default function PaymentsPage() {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="salaryEstablishment">Etablissement</Label>
-                <Select
+                <Label htmlFor="salaryEstablishment">{t("pay.salary.field.school")}</Label>
+                <select
+                  id="salaryEstablishment"
                   value={salary.establishmentId}
-                  onValueChange={(value) => setSalary((s) => ({ ...s, establishmentId: value }))}
+                  onChange={(e) => setSalary((s) => ({ ...s, establishmentId: e.target.value }))}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
                 >
-                  <SelectTrigger id="salaryEstablishment" className="w-full">
-                    <SelectValue placeholder="Choisir un etablissement" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {establishments.map((e) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">{t("pay.fee.field.school.placeholder")}</option>
+                  {establishments.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="salaryAmount">Montant (XAF)</Label>
+                <Label htmlFor="salaryAmount">{t("pay.salary.field.amount")}</Label>
                 <Input
                   id="salaryAmount"
                   type="number"
@@ -582,7 +606,7 @@ export default function PaymentsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="salaryProvider">Operateur</Label>
+                <Label htmlFor="salaryProvider">{t("pay.salary.field.provider")}</Label>
                 <Select value={salary.provider} onValueChange={(value) => setSalary((s) => ({ ...s, provider: value }))}>
                   <SelectTrigger id="salaryProvider" className="w-full">
                     <SelectValue />
@@ -590,14 +614,14 @@ export default function PaymentsPage() {
                   <SelectContent>
                     {PROVIDERS.map((p) => (
                       <SelectItem key={p} value={p}>
-                        {p === "MTN" ? "MTN Mobile Money" : "Orange Money"}
+                        {p === "MTN" ? t("common.mtn") : t("common.orange")}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="salaryPhone">Numero destinataire</Label>
+                <Label htmlFor="salaryPhone">{t("pay.salary.field.phone")}</Label>
                 <Input
                   id="salaryPhone"
                   placeholder="+237..."
@@ -613,7 +637,7 @@ export default function PaymentsPage() {
               )}
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={submittingSalary || !salary.staffUserId}>
-                  {submittingSalary ? "Initiation..." : "Payer le salaire"}
+                  {submittingSalary ? t("pay.salary.submitting") : t("pay.salary.submit")}
                 </Button>
               </div>
             </form>
@@ -622,7 +646,7 @@ export default function PaymentsPage() {
               <div className="mt-4 space-y-2 rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span>
-                    Transaction <span className="font-mono">{salaryTransaction.id}</span>
+                    {t("pay.cash.transaction")} <span className="font-mono">{salaryTransaction.id}</span>
                   </span>
                   <Badge variant={statusOf(PAYMENT_STATUS, salaryTransaction.status).variant}>
                     {statusOf(PAYMENT_STATUS, salaryTransaction.status).label}
@@ -632,7 +656,7 @@ export default function PaymentsPage() {
                   <p className="text-destructive">{salaryTransaction.failureReason}</p>
                 )}
                 <Button size="sm" variant="outline" disabled={checkingSalaryStatus} onClick={handleCheckSalaryStatus}>
-                  {checkingSalaryStatus ? "..." : "Rafraichir le statut"}
+                  {checkingSalaryStatus ? "..." : t("pay.salary.refresh")}
                 </Button>
               </div>
             )}

@@ -9,18 +9,21 @@ import { Alert } from "@/components/ui/alert";
 import { toast } from "@/components/ui/toast";
 import { EmptyState } from "@/components/EmptyState";
 import { USER_STATUS, statusOf } from "@/lib/status";
-
-const ROLE_LABELS = {
-  ADMINISTRATEUR: "Administrateur",
-  DIRECTEUR: "Directeur",
-  ENSEIGNANT: "Enseignant",
-  PARENT: "Parent",
-};
+import { useI18n } from "@/lib/i18n";
 
 // UC5 - Gerer les comptes utilisateurs (activer/suspendre) - auth-service via le proxy
 // admin-service (pattern Database per Service : admin-service ne possede pas les comptes).
 // GET /api/auth/users : liste, PATCH /api/v1/admin/users/{id}/status : changement de statut.
 export default function UsersPage() {
+  const { t } = useI18n();
+
+  const ROLE_LABELS = {
+    ADMINISTRATEUR: t("users.role.ADMINISTRATEUR"),
+    DIRECTEUR: t("users.role.DIRECTEUR"),
+    ENSEIGNANT: t("users.role.ENSEIGNANT"),
+    PARENT: t("users.role.PARENT"),
+  };
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -46,16 +49,17 @@ export default function UsersPage() {
     try {
       await apiClient.patch(`/api/v1/admin/users/${userId}/status`, { status });
       await loadUsers();
-      toast.add({ title: `Statut du compte mis a jour : ${statusOf(USER_STATUS, status).label}`, type: "success" });
+      toast.add({ title: t("users.status.updated", { status: statusOf(USER_STATUS, status).label }), type: "success" });
     } catch {
-      setActionError("Impossible de mettre a jour le statut de ce compte.");
+      setActionError(t("users.error.action"));
     } finally {
       setPendingId(null);
     }
   }
 
-  function handleDestructiveStatusChange(user, status, verb) {
-    if (window.confirm(`Confirmer : ${verb} le compte de ${user.fullName} (${user.email}) ?`)) {
+  function handleDestructiveStatusChange(user, status) {
+    const confirmKey = status === "SUSPENDED" ? "users.confirm.suspend" : "users.confirm.deactivate";
+    if (window.confirm(t(confirmKey, { name: user.fullName, email: user.email }))) {
       handleStatusChange(user.id, status);
     }
   }
@@ -63,19 +67,19 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Comptes utilisateurs</h2>
-        <p className="text-sm text-muted-foreground">Activer, suspendre ou desactiver un compte.</p>
+        <h2 className="text-2xl font-semibold">{t("users.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("users.subtitle")}</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Tous les comptes</CardTitle>
-          <CardDescription>{users.length} compte(s) enregistre(s).</CardDescription>
+          <CardTitle className="text-base">{t("users.list.title")}</CardTitle>
+          <CardDescription>{t("users.list.count", { count: users.length })}</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading && <p className="text-sm text-muted-foreground">Chargement...</p>}
+          {loading && <p className="text-sm text-muted-foreground">{t("users.loading")}</p>}
           {error && (
-            <Alert variant="error">Impossible de charger la liste des comptes (auth-service injoignable).</Alert>
+            <Alert variant="error">{t("users.error.load")}</Alert>
           )}
           {actionError && (
             <Alert variant="error" className="mb-3">
@@ -84,18 +88,18 @@ export default function UsersPage() {
           )}
 
           {!loading && !error && users.length === 0 && (
-            <EmptyState icon={UserX} message="Aucun compte enregistre." />
+            <EmptyState icon={UserX} message={t("users.empty")} />
           )}
 
           {!loading && !error && users.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("users.table.name")}</TableHead>
+                  <TableHead>{t("users.table.email")}</TableHead>
+                  <TableHead>{t("users.table.role")}</TableHead>
+                  <TableHead>{t("users.table.status")}</TableHead>
+                  <TableHead className="text-right">{t("users.table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -118,7 +122,7 @@ export default function UsersPage() {
                             disabled={pendingId === u.id}
                             onClick={() => handleStatusChange(u.id, "ACTIVE")}
                           >
-                            Activer
+                            {t("users.action.activate")}
                           </Button>
                         )}
                         {u.status !== "SUSPENDED" && (
@@ -126,9 +130,9 @@ export default function UsersPage() {
                             size="sm"
                             variant="warning"
                             disabled={pendingId === u.id}
-                            onClick={() => handleDestructiveStatusChange(u, "SUSPENDED", "suspendre")}
+                            onClick={() => handleDestructiveStatusChange(u, "SUSPENDED")}
                           >
-                            Suspendre
+                            {t("users.action.suspend")}
                           </Button>
                         )}
                         {u.status !== "INACTIVE" && (
@@ -136,9 +140,9 @@ export default function UsersPage() {
                             size="sm"
                             variant="destructive"
                             disabled={pendingId === u.id}
-                            onClick={() => handleDestructiveStatusChange(u, "INACTIVE", "desactiver")}
+                            onClick={() => handleDestructiveStatusChange(u, "INACTIVE")}
                           >
-                            Desactiver
+                            {t("users.action.deactivate")}
                           </Button>
                         )}
                       </div>

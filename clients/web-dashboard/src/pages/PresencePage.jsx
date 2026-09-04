@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import apiClient from "../api/client";
+import { useI18n } from "@/lib/i18n";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,7 @@ function classLabel(c) {
 // d'un identifiant tape a la main - presence-service valide desormais aussi tout classId recu
 // en ecriture (check-in) cote serveur, mais le formulaire evite deja la faute de frappe.
 export default function PresencePage() {
+  const { t } = useI18n();
   const [checkinStatus, setCheckinStatus] = useState(null);
   const [checkinBusy, setCheckinBusy] = useState(false);
 
@@ -68,9 +70,9 @@ export default function PresencePage() {
     setCheckinStatus(null);
     try {
       await apiClient.post("/api/v1/presence/check-in", { personType: "STAFF" });
-      setCheckinStatus({ type: "success", text: "Entree enregistree." });
+      setCheckinStatus({ type: "success", text: t("pres.checkin.inSuccess") });
     } catch (err) {
-      const msg = err.response?.data?.message || "Impossible d'enregistrer l'entree.";
+      const msg = err.response?.data?.message || t("pres.checkin.inError");
       setCheckinStatus({ type: "error", text: msg });
     } finally {
       setCheckinBusy(false);
@@ -82,9 +84,9 @@ export default function PresencePage() {
     setCheckinStatus(null);
     try {
       await apiClient.post("/api/v1/presence/check-out");
-      setCheckinStatus({ type: "success", text: "Sortie enregistree." });
+      setCheckinStatus({ type: "success", text: t("pres.checkin.outSuccess") });
     } catch (err) {
-      const msg = err.response?.data?.message || "Impossible d'enregistrer la sortie.";
+      const msg = err.response?.data?.message || t("pres.checkin.outError");
       setCheckinStatus({ type: "error", text: msg });
     } finally {
       setCheckinBusy(false);
@@ -100,7 +102,7 @@ export default function PresencePage() {
       const { data } = await apiClient.get(`/api/v1/presence/class/${encodeURIComponent(classId)}`);
       setRecords(data);
     } catch {
-      setRecordsError("Impossible de charger la presence de cette classe.");
+      setRecordsError(t("pres.class.loadError"));
     } finally {
       setLoadingRecords(false);
     }
@@ -121,7 +123,7 @@ export default function PresencePage() {
           }
         ]
       });
-      setAbsenceStatus({ type: "success", text: "Absence enregistree." });
+      setAbsenceStatus({ type: "success", text: t("pres.absence.success") });
       setAbsenceStudentId("");
       setAbsenceJustified(false);
       setAbsenceReason("");
@@ -129,7 +131,7 @@ export default function PresencePage() {
         handleLoadRecords(e);
       }
     } catch (err) {
-      const msg = err.response?.data?.message || "Impossible d'enregistrer l'absence.";
+      const msg = err.response?.data?.message || t("pres.absence.error");
       setAbsenceStatus({ type: "error", text: msg });
     } finally {
       setAbsenceBusy(false);
@@ -139,22 +141,22 @@ export default function PresencePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Presence</h2>
-        <p className="text-sm text-muted-foreground">Pointage et suivi de presence.</p>
+        <h2 className="text-2xl font-semibold">{t("pres.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("pres.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
       <Card className="xl:col-span-2">
         <CardHeader>
-          <CardTitle className="text-base">Mon pointage</CardTitle>
+          <CardTitle className="text-base">{t("pres.checkin.title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-3">
             <Button onClick={handleCheckIn} disabled={checkinBusy}>
-              Entree
+              {t("pres.checkin.in")}
             </Button>
             <Button variant="outline" onClick={handleCheckOut} disabled={checkinBusy}>
-              Sortie
+              {t("pres.checkin.out")}
             </Button>
           </div>
           {checkinStatus && (
@@ -165,16 +167,16 @@ export default function PresencePage() {
 
       <Card className="xl:col-span-3">
         <CardHeader>
-          <CardTitle className="text-base">Presence d'une classe</CardTitle>
-          <CardDescription>Consulter les entrees/sorties enregistrees pour une classe.</CardDescription>
+          <CardTitle className="text-base">{t("pres.class.title")}</CardTitle>
+          <CardDescription>{t("pres.class.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleLoadRecords} className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 space-y-1.5">
-              <Label htmlFor="classId">Classe</Label>
+              <Label htmlFor="classId">{t("pres.field.class")}</Label>
               <Select value={classId} onValueChange={setClassId}>
                 <SelectTrigger id="classId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe" />
+                  <SelectValue placeholder={t("pres.field.class.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -186,23 +188,23 @@ export default function PresencePage() {
               </Select>
             </div>
             <Button type="submit" disabled={loadingRecords || !classId}>
-              {loadingRecords ? "Chargement..." : "Afficher"}
+              {loadingRecords ? t("pres.class.loading") : t("pres.class.show")}
             </Button>
           </form>
 
           {classId && (
             <div className="pt-4 border-t mt-4">
-              <h4 className="text-sm font-medium mb-3">Signaler une absence</h4>
+              <h4 className="text-sm font-medium mb-3">{t("pres.absence.title")}</h4>
               <form onSubmit={handleMarkAbsence} className="flex flex-wrap items-end gap-3">
                 <div className="min-w-56 space-y-1.5">
-                  <Label htmlFor="absenceStudentId">Eleve</Label>
+                  <Label htmlFor="absenceStudentId">{t("pres.field.student")}</Label>
                   <Select
                     value={absenceStudentId}
                     onValueChange={setAbsenceStudentId}
                     disabled={!classId}
                   >
                     <SelectTrigger id="absenceStudentId" className="w-full">
-                      <SelectValue placeholder="Choisir un eleve" />
+                      <SelectValue placeholder={t("pres.field.student.placeholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {classStudents.map((s) => (
@@ -221,22 +223,22 @@ export default function PresencePage() {
                     onChange={(e) => setAbsenceJustified(e.target.checked)}
                     className="h-4 w-4"
                   />
-                  <Label htmlFor="absenceJustified" className="mb-0">Justifiee</Label>
+                  <Label htmlFor="absenceJustified" className="mb-0">{t("pres.absence.justified")}</Label>
                 </div>
                 {absenceJustified && (
                   <div className="space-y-1.5 flex-1 min-w-40">
-                    <Label htmlFor="absenceReason">Motif</Label>
+                    <Label htmlFor="absenceReason">{t("pres.absence.reason")}</Label>
                     <Input
                       id="absenceReason"
                       value={absenceReason}
                       onChange={(e) => setAbsenceReason(e.target.value)}
-                      placeholder="Motif de l'absence"
+                      placeholder={t("pres.absence.reason.placeholder")}
                       required
                     />
                   </div>
                 )}
                 <Button type="submit" variant="secondary" disabled={absenceBusy || !absenceStudentId}>
-                  {absenceBusy ? "..." : "Marquer absent"}
+                  {absenceBusy ? t("pres.absence.marking") : t("pres.absence.submit")}
                 </Button>
               </form>
               {absenceStatus && (
@@ -250,18 +252,18 @@ export default function PresencePage() {
           {recordsError && <Alert variant="error">{recordsError}</Alert>}
 
           {records && records.length === 0 && (
-            <EmptyState icon={ClipboardCheck} message="Aucun enregistrement pour cette classe." />
+            <EmptyState icon={ClipboardCheck} message={t("pres.class.empty")} />
           )}
 
           {records && records.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Personne</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Entree</TableHead>
-                  <TableHead>Sortie</TableHead>
-                  <TableHead>Statut</TableHead>
+                  <TableHead>{t("pres.table.person")}</TableHead>
+                  <TableHead>{t("pres.table.type")}</TableHead>
+                  <TableHead>{t("pres.table.checkin")}</TableHead>
+                  <TableHead>{t("pres.table.checkout")}</TableHead>
+                  <TableHead>{t("pres.table.status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

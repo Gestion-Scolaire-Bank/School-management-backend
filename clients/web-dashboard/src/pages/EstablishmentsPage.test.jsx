@@ -56,6 +56,11 @@ describe("EstablishmentsPage", () => {
         city: "Douala",
         phone: "",
         email: "",
+        timeFormat: "24h",
+        timeZone: "UTC",
+        currency: "XAF",
+        slogan: "",
+        description: "",
       })
     );
     expect(await screen.findByText("Lycee Test")).toBeInTheDocument();

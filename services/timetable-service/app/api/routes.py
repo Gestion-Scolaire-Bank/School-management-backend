@@ -41,6 +41,45 @@ def check_overlap(db: Session, school_id: str, classroom_id: str, day_of_week: i
             raise HTTPException(status_code=409, detail=f"Overlap with class_time {ct.id} ({minutes_to_hhmm(ct.start_time)}-{minutes_to_hhmm(ct.end_time)})")
 
 
+def check_teacher_overlap(db: Session, school_id: str, teacher_id: str, day_of_week: int, start: int, end: int, exclude_id: Optional[str] = None):
+    """Prevent double-booking a teacher (same logic as classroom overlap)."""
+    q = select(ClassTime).where(
+        ClassTime.school_id == school_id,
+        ClassTime.teacher_id == teacher_id,
+        ClassTime.day_of_week == day_of_week,
+    )
+    if exclude_id:
+        q = q.where(ClassTime.id != exclude_id)
+    for ct in db.execute(q).scalars():
+        if not (end <= ct.start_time or start >= ct.end_time):
+            raise HTTPException(status_code=409, detail=f"Teacher already booked {minutes_to_hhmm(ct.start_time)}-{minutes_to_hhmm(ct.end_time)} (class_time {ct.id})")
+
+
+def check_break_overlap(db: Session, school_id: str, day_of_week: int, start: int, end: int, exclude_id: Optional[str] = None):
+    q = select(BreakTime).where(
+        BreakTime.school_id == school_id,
+        BreakTime.day_of_week == day_of_week,
+    )
+    if exclude_id:
+        q = q.where(BreakTime.id != exclude_id)
+    for bt in db.execute(q).scalars():
+        if not (end <= bt.start_time or start >= bt.end_time):
+            raise HTTPException(status_code=409, detail=f"Overlap with break_time {bt.id} ({minutes_to_hhmm(bt.start_time)}-{minutes_to_hhmm(bt.end_time)})")
+
+
+def _holidays_for_classroom(db: Session, school: str, classroom_id: str):
+    """wyscolars parity: holidays linked via holiday_classroom PLUS global
+    all_class holidays (HolidayType semantics: all_class applies everywhere,
+    specific_class only when linked)."""
+    hc_rows = db.execute(select(HolidayClassroom).where(HolidayClassroom.classroom_id == classroom_id, HolidayClassroom.school_id == school)).scalars().all()
+    linked_ids = [hc.holiday_id for hc in hc_rows]
+    q = select(Holiday).where(Holiday.school_id == school)
+    holidays = db.execute(q).scalars().all()
+    # keep global all_class holidays + linked specific ones
+    out = [h for h in holidays if h.type == "all_class" or h.id in linked_ids]
+    return out
+
+
 # ---------- ClassTime ----------
 @router.post("/api/v1/timetable/class-times", status_code=201)
 def create_class_time(payload: ClassTimeCreate, db: Session = Depends(get_db)):
@@ -48,6 +87,7 @@ def create_class_time(payload: ClassTimeCreate, db: Session = Depends(get_db)):
         raise HTTPException(400, "startTime must be before endTime")
     school = resolve_school(payload.schoolId)
     check_overlap(db, school, payload.classroomId, payload.dayOfWeek, payload.startTime, payload.endTime)
+    check_teacher_overlap(db, school, payload.teacherId, payload.dayOfWeek, payload.startTime, payload.endTime)
     ct = ClassTime(
         school_id=school,
         classroom_id=payload.classroomId,
@@ -100,6 +140,7 @@ def update_class_time(ct_id: str, payload: ClassTimeUpdate, db: Session = Depend
     if payload.startTime >= payload.endTime:
         raise HTTPException(400, "startTime must be before endTime")
     check_overlap(db, ct.school_id, payload.classroomId, payload.dayOfWeek, payload.startTime, payload.endTime, exclude_id=ct_id)
+    check_teacher_overlap(db, ct.school_id, payload.teacherId, payload.dayOfWeek, payload.startTime, payload.endTime, exclude_id=ct_id)
     ct.classroom_id = payload.classroomId
     ct.subject_id = payload.subjectId
     ct.teacher_id = payload.teacherId
@@ -143,6 +184,7 @@ def create_break_time(payload: BreakTimeCreate, db: Session = Depends(get_db)):
     if payload.startTime >= payload.endTime:
         raise HTTPException(400, "startTime must be before endTime")
     school = resolve_school(payload.schoolId)
+    check_break_overlap(db, school, payload.dayOfWeek, payload.startTime, payload.endTime)
     bt = BreakTime(school_id=school, start_time=payload.startTime, end_time=payload.endTime, day_of_week=payload.dayOfWeek)
     db.add(bt)
     db.commit()
@@ -170,6 +212,9 @@ def update_break_time(bt_id: str, payload: BreakTimeUpdate, db: Session = Depend
     bt = db.get(BreakTime, bt_id)
     if not bt:
         raise HTTPException(404, "break_time not found")
+    if payload.startTime >= payload.endTime:
+        raise HTTPException(400, "startTime must be before endTime")
+    check_break_overlap(db, bt.school_id, payload.dayOfWeek, payload.startTime, payload.endTime, exclude_id=bt_id)
     bt.start_time = payload.startTime
     bt.end_time = payload.endTime
     bt.day_of_week = payload.dayOfWeek
@@ -369,14 +414,8 @@ def simulate_classroom(
 
     break_times = db.execute(select(BreakTime).where(BreakTime.school_id == school)).scalars().all()
 
-    # holidays for this classroom
-    holiday_ids = [r.holiday_id for r in db.execute(select(HolidayClassroom).where(HolidayClassroom.classroom_id == classroom_id)).scalars()] if False else []
-    # fetch via join
-    hc_rows = db.execute(select(HolidayClassroom).where(HolidayClassroom.classroom_id == classroom_id, HolidayClassroom.school_id == school)).scalars().all()
-    holiday_ids = [hc.holiday_id for hc in hc_rows]
-    holidays = []
-    if holiday_ids:
-        holidays = db.execute(select(Holiday).where(Holiday.id.in_(holiday_ids))).scalars().all()
+    # holidays for this classroom (linked + global all_class, cf. _holidays_for_classroom)
+    holidays = _holidays_for_classroom(db, school, classroom_id)
 
     # build date range
     today = date.today()
@@ -447,10 +486,8 @@ def simulate_teacher(
     for cr_id, cr_times in grouped.items():
         # reuse classroom simulate logic per classroom
         # quick delegate to simulate_classroom but filtered to this teacher's slots only
-        # holidays for cr
-        hc_rows = db.execute(select(HolidayClassroom).where(HolidayClassroom.classroom_id == cr_id, HolidayClassroom.school_id == school)).scalars().all()
-        holiday_ids = [hc.holiday_id for hc in hc_rows]
-        holidays = db.execute(select(Holiday).where(Holiday.id.in_(holiday_ids))).scalars().all() if holiday_ids else []
+        # holidays for cr (linked + global all_class)
+        holidays = _holidays_for_classroom(db, school, cr_id)
         break_times = db.execute(select(BreakTime).where(BreakTime.school_id == school)).scalars().all()
         ct_ids = [ct.id for ct in cr_times]
         today = date.today()
@@ -477,7 +514,7 @@ def simulate_teacher(
                     slots.append(slot)
             for bt in break_times:
                 if bt.day_of_week == dow:
-                    slots.append({"type": "break", "startTime": bt.start_time, "endTime": bt.end_time})
+                    slots.append({"type": "break", "startTime": bt.start_time, "endTime": bt.end_time, "startTimeLabel": minutes_to_hhmm(bt.start_time), "endTimeLabel": minutes_to_hhmm(bt.end_time)})
             slots.sort(key=lambda s: s["startTime"])
             days.append({"date": d_str, "dayOfWeek": dow, "slots": slots})
             if dow == 7 or cursor == end:
@@ -487,6 +524,54 @@ def simulate_teacher(
             cursor += timedelta(days=1)
         result.append({"classroomId": cr_id, "weeks": weeks_data})
     return {"data": {"teacherId": teacher_id, "classrooms": result}}
+
+
+# ---------- Seed defaults (ported from wyscolars SessionCreateEventListener) ----------
+@router.post("/api/v1/timetable/seed-defaults", status_code=201)
+def seed_defaults(schoolId: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """Create default breaks (10:00-10:15, 12:00-13:00, 15:00-15:15 Mon-Fri)
+    and default holidays when none exist — same as wyscolars session-create listener."""
+    school = resolve_school(schoolId)
+    created = {"breaks": 0, "holidays": 0}
+    existing_breaks = db.execute(select(BreakTime).where(BreakTime.school_id == school)).scalars().all()
+    if not existing_breaks:
+        defaults = [(600, 615), (720, 780), (900, 915)]  # 10:00, 12:00, 15:00
+        for dow in range(1, 6):
+            for s, e in defaults:
+                db.add(BreakTime(school_id=school, start_time=s, end_time=e, day_of_week=dow))
+                created["breaks"] += 1
+    existing_holidays = db.execute(select(Holiday).where(Holiday.school_id == school)).scalars().all()
+    if not existing_holidays:
+        year = date.today().year
+        for name, s, e in [
+            ("Vacances de Noel", date(year, 12, 20), date(year + 1, 1, 5)),
+            ("Conge de Paques", date(year, 4, 5), date(year, 4, 20)),
+            ("Grandes vacances", date(year, 7, 5), date(year, 9, 1)),
+        ]:
+            db.add(Holiday(school_id=school, name=name, start_at=s, end_at=e, type="all_class"))
+            created["holidays"] += 1
+    db.commit()
+    return {"data": created}
+
+
+# ---------- Print pivot (ported from wyscolars print/classroom_timetable) ----------
+@router.get("/api/v1/timetable/classroom/{classroom_id}/print")
+def print_classroom_timetable(
+    classroom_id: str,
+    schoolId: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Pivot ClassTimes into {time: 'HH:MM - HH:MM', days: {1..6: slot}} for printing."""
+    school = resolve_school(schoolId)
+    class_times = db.execute(
+        select(ClassTime).where(ClassTime.classroom_id == classroom_id, ClassTime.school_id == school).order_by(ClassTime.start_time)
+    ).scalars().all()
+    rows: dict[str, dict] = {}
+    for ct in class_times:
+        key = f"{minutes_to_hhmm(ct.start_time)} - {minutes_to_hhmm(ct.end_time)}"
+        rows.setdefault(key, {"time": key, "days": {}})
+        rows[key]["days"][ct.day_of_week] = _serialize_class_time(ct)
+    return {"data": {"classroomId": classroom_id, "rows": list(rows.values())}}
 
 
 def _find_holiday(holidays, cur: date):

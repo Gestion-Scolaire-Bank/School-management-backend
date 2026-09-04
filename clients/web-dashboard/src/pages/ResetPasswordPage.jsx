@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { useI18n } from "@/lib/i18n";
 
 // Point n.7 - Finalise la reinitialisation a partir du jeton recu par email (URL de la
 // forme /reset-password?token=...). Le jeton est a usage unique et expire au bout d'1h
 // (cf. AuthController#confirmerLaReinitialisationDeMotDePasse).
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const navigate = useNavigate();
@@ -25,7 +27,7 @@ export default function ResetPasswordPage() {
     setError(null);
 
     if (newPassword !== confirmPassword) {
-      setError("Les deux mots de passe ne correspondent pas.");
+      setError(t("auth.reset.error.mismatch"));
       return;
     }
 
@@ -34,7 +36,7 @@ export default function ResetPasswordPage() {
       await apiClient.post("/api/auth/password-reset/confirm", { token, newPassword });
       navigate("/login", { state: { passwordResetSuccess: true } });
     } catch (err) {
-      setError(err.response?.data?.message || "Ce lien n'est plus valide - demandez-en un nouveau.");
+      setError(err.response?.data?.message || t("auth.reset.error.invalidLink"));
     } finally {
       setLoading(false);
     }
@@ -42,20 +44,20 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthLayout>
-      <h2 className="text-2xl font-semibold tracking-tight text-foreground">Nouveau mot de passe</h2>
+      <h2 className="text-2xl font-semibold tracking-tight text-foreground">{t("auth.reset.title")}</h2>
 
       {!token ? (
         <Alert variant="error">
-          Ce lien est incomplet. Redemandez une reinitialisation depuis la{" "}
+          {t("auth.reset.incomplete")}{" "}
           <Link to="/forgot-password" className="underline-offset-4 hover:underline">
-            page de mot de passe oublie
+            {t("auth.reset.forgotLink")}
           </Link>
           .
         </Alert>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+            <Label htmlFor="newPassword">{t("auth.reset.field.newPassword")}</Label>
             <Input
               id="newPassword"
               type="password"
@@ -69,7 +71,7 @@ export default function ResetPasswordPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+            <Label htmlFor="confirmPassword">{t("auth.reset.field.confirmPassword")}</Label>
             <Input
               id="confirmPassword"
               type="password"
@@ -83,7 +85,7 @@ export default function ResetPasswordPage() {
           </div>
           {error && <Alert variant="error">{error}</Alert>}
           <Button type="submit" className="h-10 w-full" disabled={loading}>
-            {loading ? "Enregistrement..." : "Changer le mot de passe"}
+            {loading ? t("auth.reset.submit.loading") : t("auth.reset.submit")}
           </Button>
         </form>
       )}

@@ -351,6 +351,9 @@ schoolmanage:
       - method: GET
         path: /api/v1/timetable/teacher/**
         roles: [ADMINISTRATEUR, DIRECTEUR, ENSEIGNANT]
+      - method: POST
+        path: /api/v1/timetable/seed-defaults**
+        roles: [ADMINISTRATEUR, DIRECTEUR]
 
 management:
   health:

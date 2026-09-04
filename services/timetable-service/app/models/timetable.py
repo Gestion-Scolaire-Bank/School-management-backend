@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, date
-from sqlalchemy import String, Integer, Date, Text, DateTime
+from sqlalchemy import String, Integer, Date, Text, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -55,6 +55,7 @@ class HolidayClassroom(Base):
 
 class ClassTimeOccurrence(Base):
     __tablename__ = "class_time_occurrence"
+    __table_args__ = (UniqueConstraint("class_time_id", "occurrence_date", name="uniq_class_time_occurrence"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=gen_uuid)
     school_id: Mapped[str] = mapped_column(String(36), nullable=False)
     class_time_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)

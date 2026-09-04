@@ -25,7 +25,8 @@ export default function EstablishmentsPage() {
 
   function loadEstablishments() {
     setLoading(true);
-    return apiClient.get("/api/v1/admin/establishments").then((res) => setEstablishments(res.data || [])).catch(() => setEstablishments([])).finally(() => setLoading(false));
+    // keep previous list on error (stale-while-revalidate) — never wipe to []
+    return apiClient.get("/api/v1/admin/establishments").then((res) => setEstablishments(res.data || [])).catch(() => {}).finally(() => setLoading(false));
   }
   useEffect(() => { loadEstablishments(); }, []);
 

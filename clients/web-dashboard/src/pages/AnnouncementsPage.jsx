@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import { Users } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 function classLabel(c) {
   return `${c.name} (${c.level} - ${c.academicYear})`;
@@ -30,6 +31,7 @@ function guardianEmails(member) {
 // saisie a la main - whatsapp-service valide desormais aussi tout classId recu en ecriture
 // cote serveur, mais le formulaire evite deja la faute de frappe.
 export default function AnnouncementsPage() {
+  const { t } = useI18n();
   const isTeacher = getUser()?.role === "ENSEIGNANT";
 
   const [classes, setClasses] = useState([]);
@@ -61,7 +63,7 @@ export default function AnnouncementsPage() {
       setGroup(data);
     } catch {
       const c = classes.find((cl) => cl.id === groupClassId);
-      setGroupError(`Aucun groupe WhatsApp pour la classe ${c ? classLabel(c) : groupClassId}.`);
+      setGroupError(t("ann.group.notFound", { label: c ? classLabel(c) : groupClassId }));
     } finally {
       setLoadingGroup(false);
     }
@@ -73,10 +75,10 @@ export default function AnnouncementsPage() {
     setStatus(null);
     try {
       await apiClient.post("/api/v1/whatsapp/broadcast", { classId, message });
-      setStatus({ type: "success", text: "Annonce envoyee." });
+      setStatus({ type: "success", text: t("ann.new.success") });
       setMessage("");
     } catch {
-      setStatus({ type: "error", text: "Echec de l'envoi - verifiez qu'un groupe existe pour cette classe." });
+      setStatus({ type: "error", text: t("ann.new.error") });
     } finally {
       setSubmitting(false);
     }
@@ -85,26 +87,26 @@ export default function AnnouncementsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Annonces</h2>
-        <p className="text-sm text-muted-foreground">Groupes WhatsApp de classe et diffusion d'annonces.</p>
+        <h2 className="text-2xl font-semibold">{t("ann.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("ann.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {isTeacher && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Groupe WhatsApp d'une classe</CardTitle>
+              <CardTitle className="text-base">{t("ann.group.title")}</CardTitle>
               <CardDescription>
-                Le groupe est cree automatiquement a l'inscription du premier eleve de la classe.
+                {t("ann.group.subtitle")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={handleLookupGroup} className="flex flex-wrap items-end gap-3">
                 <div className="min-w-56 flex-1 space-y-1.5">
-                  <Label htmlFor="groupClassId">Classe</Label>
+                  <Label htmlFor="groupClassId">{t("ann.field.class")}</Label>
                   <Select value={groupClassId} onValueChange={setGroupClassId}>
                     <SelectTrigger id="groupClassId" className="w-full">
-                      <SelectValue placeholder="Choisir une classe" />
+                      <SelectValue placeholder={t("ann.field.class.placeholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {classes.map((c) => (
@@ -116,7 +118,7 @@ export default function AnnouncementsPage() {
                   </Select>
                 </div>
                 <Button type="submit" disabled={loadingGroup || !groupClassId}>
-                  {loadingGroup ? "Recherche..." : "Rechercher"}
+                  {loadingGroup ? t("ann.group.searching") : t("ann.group.search")}
                 </Button>
               </form>
 
@@ -126,19 +128,19 @@ export default function AnnouncementsPage() {
                 <div className="space-y-2">
                   <p className="text-sm">
                     <span className="font-medium">{group.name}</span>{" "}
-                    <Badge variant="secondary">{group.members?.length ?? 0} membre(s)</Badge>
+                    <Badge variant="secondary">{t("ann.group.memberCount", { count: group.members?.length ?? 0 })}</Badge>
                   </p>
                   {group.members?.length > 0 ? (
                     <ul className="space-y-1 text-sm text-muted-foreground">
                       {group.members.map((m) => (
                         <li key={m.studentId}>
-                          Eleve <span className="font-mono">{m.studentId}</span>
+                          {t("ann.group.memberPrefix")} <span className="font-mono">{m.studentId}</span>
                           {guardianEmails(m).length > 0 ? ` - ${guardianEmails(m).join(", ")}` : ""}
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <EmptyState icon={Users} message="Aucun membre dans ce groupe pour le moment." className="py-4" />
+                    <EmptyState icon={Users} message={t("ann.group.empty")} className="py-4" />
                   )}
                 </div>
               )}
@@ -148,16 +150,16 @@ export default function AnnouncementsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Nouvelle annonce</CardTitle>
-            <CardDescription>Le message sera diffuse au groupe WhatsApp de la classe.</CardDescription>
+            <CardTitle className="text-base">{t("ann.new.title")}</CardTitle>
+            <CardDescription>{t("ann.new.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="classId">Classe</Label>
+                <Label htmlFor="classId">{t("ann.field.class")}</Label>
                 <Select value={classId} onValueChange={setClassId}>
                   <SelectTrigger id="classId" className="w-full">
-                    <SelectValue placeholder="Choisir une classe" />
+                    <SelectValue placeholder={t("ann.field.class.placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => (
@@ -169,7 +171,7 @@ export default function AnnouncementsPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="message">Message</Label>
+                <Label htmlFor="message">{t("ann.field.message")}</Label>
                 <Textarea
                   id="message"
                   value={message}
@@ -179,7 +181,7 @@ export default function AnnouncementsPage() {
               </div>
               {status && <Alert variant={status.type === "success" ? "success" : "error"}>{status.text}</Alert>}
               <Button type="submit" disabled={submitting || !classId}>
-                {submitting ? "Envoi..." : "Diffuser"}
+                {submitting ? t("ann.new.sending") : t("ann.new.submit")}
               </Button>
             </form>
           </CardContent>

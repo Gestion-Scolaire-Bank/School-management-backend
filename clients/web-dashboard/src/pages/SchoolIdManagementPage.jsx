@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import { REGISTRATION_STATUS, statusOf } from "@/lib/status";
+import { useI18n } from "@/lib/i18n";
 
 export default function SchoolIdManagementPage() {
+  const { t } = useI18n();
   const [classes, setClasses] = useState([]);
   const [establishments, setEstablishments] = useState([]);
   const [selectedEstablishmentId, setSelectedEstablishmentId] = useState("");
@@ -48,14 +50,15 @@ export default function SchoolIdManagementPage() {
   const [actionStatus, setActionStatus] = useState(null);
 
   useEffect(() => {
+    // stale-while-revalidate: keep stale list on error, never wipe selected value
     apiClient
       .get("/api/v1/admin/classes")
       .then((res) => setClasses(res.data || []))
-      .catch(() => setClasses([]));
+      .catch(() => {});
     apiClient
       .get("/api/v1/admin/establishments")
       .then((res) => setEstablishments(res.data || []))
-      .catch(() => setEstablishments([]));
+      .catch(() => {});
   }, []);
 
   const filteredClasses = selectedEstablishmentId
@@ -70,7 +73,7 @@ export default function SchoolIdManagementPage() {
       const { data } = await apiClient.get(`/api/v1/registrations/class/${classId}`);
       setStudents(data || []);
     } catch (err) {
-      setError("Impossible de charger les élèves de cette classe.");
+      setError(t("sid.roster.error"));
       setStudents([]);
     } finally {
       setLoadingStudents(false);
@@ -84,19 +87,19 @@ export default function SchoolIdManagementPage() {
 
   const handlePhotoUpload = async (studentId, file) => {
     if (!file) return;
-    setActionStatus({ type: "info", text: "Téléversement de la photo..." });
+    setActionStatus({ type: "info", text: t("sid.photo.uploading") });
     try {
       const formData = new FormData();
       formData.append("photo", file);
       await apiClient.patch(`/api/v1/registrations/${studentId}/photo`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      setActionStatus({ type: "success", text: "Photo mise à jour avec succès." });
+      setActionStatus({ type: "success", text: t("sid.photo.success") });
       fetchRoster(selectedClassId);
     } catch (err) {
       setActionStatus({
         type: "error",
-        text: err.response?.data?.message || "Échec de la mise à jour de la photo.",
+        text: err.response?.data?.message || t("sid.photo.error"),
       });
     }
   };
@@ -118,13 +121,13 @@ export default function SchoolIdManagementPage() {
     setSavingInfo(true);
     try {
       await apiClient.patch(`/api/v1/registrations/${editingStudent.id}/info`, editForm);
-      setActionStatus({ type: "success", text: "Informations de l'élève mises à jour." });
+      setActionStatus({ type: "success", text: t("sid.edit.success") });
       setEditingStudent(null);
       fetchRoster(selectedClassId);
     } catch (err) {
       setActionStatus({
         type: "error",
-        text: err.response?.data?.message || "Échec de la mise à jour des informations.",
+        text: err.response?.data?.message || t("sid.edit.error"),
       });
     } finally {
       setSavingInfo(false);
@@ -132,12 +135,12 @@ export default function SchoolIdManagementPage() {
   };
 
   const generateCard = async (student) => {
-    setActionStatus({ type: "info", text: `Génération de la carte pour ${student.firstName}...` });
+    setActionStatus({ type: "info", text: t("sid.generate.generating", { name: student.firstName }) });
     try {
       const payload = {
         student_id: student.id,
         full_name: `${student.firstName} ${student.lastName}`,
-        class_name: classes.find((c) => c.id === selectedClassId)?.name || "Classe",
+        class_name: classes.find((c) => c.id === selectedClassId)?.name || t("sid.classFallback"),
         date_of_birth: student.dateOfBirth,
         photo_url: student.documents?.photo || null,
         school_name: schoolName,
@@ -147,11 +150,11 @@ export default function SchoolIdManagementPage() {
       };
 
       await apiClient.post("/api/v1/school-id/generate", payload);
-      setActionStatus({ type: "success", text: `Carte d'identité générée pour ${student.firstName}.` });
+      setActionStatus({ type: "success", text: t("sid.generate.success", { name: student.firstName }) });
     } catch (err) {
       setActionStatus({
         type: "error",
-        text: err.response?.data?.detail || "Erreur lors de la génération de la carte.",
+        text: err.response?.data?.detail || t("sid.generate.error"),
       });
     }
   };
@@ -162,14 +165,14 @@ export default function SchoolIdManagementPage() {
     if (eligible.length === 0) {
       setActionStatus({
         type: "error",
-        text: "Aucun élève dans cette classe n'a de photo disponible pour générer sa carte.",
+        text: t("sid.bulk.noPhoto"),
       });
       return;
     }
 
     setActionStatus({
       type: "info",
-      text: `Génération en lot de ${eligible.length} carte(s)...`,
+      text: t("sid.bulk.generating", { count: eligible.length }),
     });
 
     let successCount = 0;
@@ -178,7 +181,7 @@ export default function SchoolIdManagementPage() {
         const payload = {
           student_id: student.id,
           full_name: `${student.firstName} ${student.lastName}`,
-          class_name: classes.find((c) => c.id === selectedClassId)?.name || "Classe",
+          class_name: classes.find((c) => c.id === selectedClassId)?.name || t("sid.classFallback"),
           date_of_birth: student.dateOfBirth,
           photo_url: student.documents?.photo || null,
           school_name: schoolName,
@@ -195,7 +198,7 @@ export default function SchoolIdManagementPage() {
 
     setActionStatus({
       type: "success",
-      text: `Génération terminée : ${successCount}/${eligible.length} cartes créées avec succès.`,
+      text: t("sid.bulk.done", { success: successCount, total: eligible.length }),
     });
   };
 
@@ -203,9 +206,9 @@ export default function SchoolIdManagementPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold">Gestion des Cartes Scolaires</h2>
+          <h2 className="text-2xl font-semibold">{t("sid.title")}</h2>
           <p className="text-sm text-muted-foreground">
-            Mettez à jour les photos d'élèves et générez des cartes d'identité scolaires personnalisées par classe.
+            {t("sid.subtitle")}
           </p>
         </div>
       </div>
@@ -231,48 +234,52 @@ export default function SchoolIdManagementPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Building2 className="size-4 text-primary" />
-              Sélection de la Classe
+              {t("sid.filter.title")}
             </CardTitle>
-            <CardDescription>Sélectionnez un établissement et une classe pour afficher les élèves.</CardDescription>
+            <CardDescription>{t("sid.filter.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="establishmentId">Établissement</Label>
-              <Select
+              <Label htmlFor="establishmentId">{t("sid.field.establishment")}</Label>
+              <select
+                id="establishmentId"
                 value={selectedEstablishmentId}
-                onValueChange={(val) => {
+                onChange={(e) => {
+                  const val = e.target.value;
                   setSelectedEstablishmentId(val);
                   setSelectedClassId("");
                   setStudents(null);
                 }}
+                className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
               >
-                <SelectTrigger id="establishmentId">
-                  <SelectValue placeholder="Choisir un établissement" />
-                </SelectTrigger>
-                <SelectContent>
-                  {establishments.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>
-                      {e.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="">{t("sid.field.establishment.placeholder")}</option>
+                {establishments.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="classId">Classe</Label>
-              <Select value={selectedClassId} onValueChange={handleClassChange} disabled={!selectedEstablishmentId}>
-                <SelectTrigger id="classId">
-                  <SelectValue placeholder="Choisir une classe" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredClasses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} ({c.level})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="classId">{t("sid.field.class")}</Label>
+              <select
+                id="classId"
+                value={selectedClassId}
+                onChange={(e) => handleClassChange(e.target.value)}
+                disabled={!selectedEstablishmentId}
+                className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+              >
+                <option value="">{t("sid.field.class.placeholder")}</option>
+                {filteredClasses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.level})
+                  </option>
+                ))}
+              </select>
+              {selectedEstablishmentId && filteredClasses.length === 0 && (
+                <p className="text-xs text-muted-foreground">{t("sid.roster.empty.none")}</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -282,13 +289,13 @@ export default function SchoolIdManagementPage() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <CreditCard className="size-4 text-primary" />
-              Style de la Carte
+              {t("sid.style.title")}
             </CardTitle>
-            <CardDescription>Saisissez les paramètres de charte graphique à appliquer lors de la génération.</CardDescription>
+            <CardDescription>{t("sid.style.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="schoolNameInput">Nom de l'école sur la carte</Label>
+              <Label htmlFor="schoolNameInput">{t("sid.style.field.schoolName")}</Label>
               <Input
                 id="schoolNameInput"
                 value={schoolName}
@@ -297,16 +304,16 @@ export default function SchoolIdManagementPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="logoUrlInput">URL du Logo de l'école (facultatif)</Label>
+              <Label htmlFor="logoUrlInput">{t("sid.style.field.logoUrl")}</Label>
               <Input
                 id="logoUrlInput"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="Ex: http://minio-url/logo.png"
+                placeholder={t("sid.style.field.logoUrl.placeholder")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="accentColorInput">Couleur Principale (Accent)</Label>
+              <Label htmlFor="accentColorInput">{t("sid.style.field.accent")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="accentColorInput"
@@ -324,7 +331,7 @@ export default function SchoolIdManagementPage() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="bgColorInput">Couleur de Fond</Label>
+              <Label htmlFor="bgColorInput">{t("sid.style.field.background")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="bgColorInput"
@@ -349,39 +356,39 @@ export default function SchoolIdManagementPage() {
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle className="text-base">Liste des Élèves</CardTitle>
-            <CardDescription>Tableau des inscriptions validées et statut de génération.</CardDescription>
+            <CardTitle className="text-base">{t("sid.roster.title")}</CardTitle>
+            <CardDescription>{t("sid.roster.subtitle")}</CardDescription>
           </div>
           {students && students.length > 0 && (
             <Button onClick={bulkGenerate} className="flex items-center gap-2 self-start sm:self-center">
               <RefreshCw className="size-4 animate-spin-hover" />
-              Générer pour toute la classe
+              {t("sid.bulk.submit")}
             </Button>
           )}
         </CardHeader>
         <CardContent>
-          {loadingStudents && <div className="text-center py-6 text-sm text-muted-foreground">Chargement des élèves...</div>}
+          {loadingStudents && <div className="text-center py-6 text-sm text-muted-foreground">{t("sid.roster.loading")}</div>}
           
           {error && <Alert variant="error">{error}</Alert>}
           
           {!students && !loadingStudents && (
-            <EmptyState icon={Layers} message="Veuillez sélectionner un établissement et une classe pour afficher les élèves." />
+            <EmptyState icon={Layers} message={t("sid.roster.empty.select")} />
           )}
 
           {students && students.length === 0 && (
-            <EmptyState icon={Layers} message="Aucun élève inscrit dans cette classe." />
+            <EmptyState icon={Layers} message={t("sid.roster.empty.none")} />
           )}
 
           {students && students.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Photo</TableHead>
-                  <TableHead>Nom Complet</TableHead>
-                  <TableHead>Identifiant Dossier</TableHead>
-                  <TableHead>Date de Naissance</TableHead>
-                  <TableHead>Statut Dossier</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-[100px]">{t("sid.table.photo")}</TableHead>
+                  <TableHead>{t("sid.table.fullName")}</TableHead>
+                  <TableHead>{t("sid.table.recordId")}</TableHead>
+                  <TableHead>{t("sid.table.dob")}</TableHead>
+                  <TableHead>{t("sid.table.status")}</TableHead>
+                  <TableHead className="text-right">{t("sid.table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -394,7 +401,7 @@ export default function SchoolIdManagementPage() {
                           {student.documents?.photo ? (
                             <img
                               src={student.documents.photo}
-                              alt="Aperçu"
+                              alt={t("sid.photo.previewAlt")}
                               className="size-full object-cover"
                             />
                           ) : (
@@ -427,7 +434,7 @@ export default function SchoolIdManagementPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="Modifier les infos"
+                          title={t("sid.action.edit")}
                           onClick={() => openEditModal(student)}
                         >
                           <UserCog className="size-4 text-muted-foreground hover:text-foreground" />
@@ -437,14 +444,14 @@ export default function SchoolIdManagementPage() {
                           size="sm"
                           disabled={!student.documents?.photo}
                           onClick={() => generateCard(student)}
-                          title="Générer la carte scolaire"
+                          title={t("sid.action.generateTitle")}
                         >
-                          Générer
+                          {t("sid.action.generate")}
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          title="Voir la carte"
+                          title={t("sid.action.view")}
                           onClick={() => {
                             setPreviewStudentId(student.id);
                             setPreviewStudentName(`${student.firstName} ${student.lastName}`);
@@ -468,14 +475,14 @@ export default function SchoolIdManagementPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <Card className="w-full max-w-lg bg-card shadow-2xl">
             <CardHeader>
-              <CardTitle className="text-base">Modifier les informations de l'élève</CardTitle>
-              <CardDescription>Saisissez les détails à mettre à jour pour {editingStudent.firstName}.</CardDescription>
+              <CardTitle className="text-base">{t("sid.edit.title")}</CardTitle>
+              <CardDescription>{t("sid.edit.subtitle", { name: editingStudent.firstName })}</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleEditSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="editFirstName">Prénom</Label>
+                    <Label htmlFor="editFirstName">{t("sid.edit.field.firstName")}</Label>
                     <Input
                       id="editFirstName"
                       value={editForm.firstName}
@@ -484,7 +491,7 @@ export default function SchoolIdManagementPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="editLastName">Nom</Label>
+                    <Label htmlFor="editLastName">{t("sid.edit.field.lastName")}</Label>
                     <Input
                       id="editLastName"
                       value={editForm.lastName}
@@ -495,7 +502,7 @@ export default function SchoolIdManagementPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="editDob">Date de naissance</Label>
+                  <Label htmlFor="editDob">{t("sid.edit.field.dob")}</Label>
                   <Input
                     id="editDob"
                     type="date"
@@ -506,7 +513,7 @@ export default function SchoolIdManagementPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="editGuardian">Nom du tuteur</Label>
+                  <Label htmlFor="editGuardian">{t("sid.edit.field.guardian")}</Label>
                   <Input
                     id="editGuardian"
                     value={editForm.guardianName}
@@ -517,7 +524,7 @@ export default function SchoolIdManagementPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="editEmail">Email parent</Label>
+                    <Label htmlFor="editEmail">{t("sid.edit.field.parentEmail")}</Label>
                     <Input
                       id="editEmail"
                       type="email"
@@ -527,7 +534,7 @@ export default function SchoolIdManagementPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="editPhone">Téléphone parent</Label>
+                    <Label htmlFor="editPhone">{t("sid.edit.field.parentPhone")}</Label>
                     <Input
                       id="editPhone"
                       value={editForm.parentPhone}
@@ -538,10 +545,10 @@ export default function SchoolIdManagementPage() {
 
                 <div className="flex justify-end gap-3 pt-2">
                   <Button type="button" variant="outline" onClick={() => setEditingStudent(null)} disabled={savingInfo}>
-                    Annuler
+                    {t("sid.edit.cancel")}
                   </Button>
                   <Button type="submit" disabled={savingInfo}>
-                    {savingInfo ? "Enregistrement..." : "Enregistrer"}
+                    {savingInfo ? t("sid.edit.saving") : t("sid.edit.save")}
                   </Button>
                 </div>
               </form>
@@ -556,22 +563,22 @@ export default function SchoolIdManagementPage() {
           <Card className="w-full max-w-2xl bg-card shadow-2xl overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <div>
-                <CardTitle className="text-base">Carte d'Identité Scolaire</CardTitle>
-                <CardDescription>Visualisation du rendu généré pour {previewStudentName}.</CardDescription>
+                <CardTitle className="text-base">{t("sid.preview.title")}</CardTitle>
+                <CardDescription>{t("sid.preview.subtitle", { name: previewStudentName })}</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={() => setPreviewStudentId(null)}>
-                Fermer
+                {t("sid.preview.close")}
               </Button>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center bg-muted/20 p-8">
               <div className="border border-border shadow-xl rounded-lg overflow-hidden bg-white shrink-0 mb-4">
                 <img
                   src={`${apiClient.defaults.baseURL || "http://localhost:8888"}/api/v1/school-id/${previewStudentId}?v=${previewVersion}`}
-                  alt="Carte Scolaire"
+                  alt={t("sid.preview.imageAlt")}
                   className="w-full max-w-[500px] h-auto aspect-[1.6] block"
                   onError={(e) => {
                     e.target.onerror = null;
-                    e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='500' height='300' viewBox='0 0 500 300'><rect width='100%' height='100%' fill='%23f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%236b7280'>Aucune carte active générée</text></svg>";
+                    e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='500' height='300' viewBox='0 0 500 300'><rect width='100%' height='100%' fill='%23f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%236b7280'>" + t("sid.preview.emptyCard") + "</text></svg>";
                   }}
                 />
               </div>
@@ -586,7 +593,7 @@ export default function SchoolIdManagementPage() {
                     a.click();
                   }}
                 >
-                  Télécharger (PNG)
+                  {t("sid.preview.download")}
                 </Button>
               </div>
             </CardContent>

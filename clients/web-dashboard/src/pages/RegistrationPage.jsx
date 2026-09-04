@@ -96,14 +96,15 @@ export default function RegistrationPage() {
   const [loadingRoster, setLoadingRoster] = useState(false);
 
   useEffect(() => {
+    // stale-while-revalidate: never wipe selected value on error
     apiClient
       .get("/api/v1/admin/classes")
       .then((res) => setClasses(res.data || []))
-      .catch(() => setClasses([]));
+      .catch(() => {});
     apiClient
       .get("/api/v1/admin/establishments")
       .then((res) => setEstablishments(res.data || []))
-      .catch(() => setEstablishments([]));
+      .catch(() => {});
   }, []);
 
   function classNameById(id) {
@@ -127,7 +128,7 @@ export default function RegistrationPage() {
     // double saisie attrape cette erreur avant meme l'envoi (cf. discussion sur la creation de
     // compte parent).
     if (student.parentEmail !== student.parentEmailConfirm) {
-      setStudentStatus({ type: "error", text: "Les deux emails du parent ne correspondent pas." });
+      setStudentStatus({ type: "error", text: t("reg.student.error.emailMismatch") });
       return;
     }
     setSubmittingStudent(true);
@@ -147,7 +148,7 @@ export default function RegistrationPage() {
       if (birthCertificate) formData.append("birthCertificate", birthCertificate);
 
       const { data } = await apiClient.post("/api/v1/registrations/student", formData);
-      setStudentStatus({ type: "success", text: "Eleve inscrit avec succes." });
+      setStudentStatus({ type: "success", text: t("reg.student.success") });
       setStudentResult(data);
       setStudent(EMPTY_STUDENT);
       setStudentPhoto(null);
@@ -155,7 +156,7 @@ export default function RegistrationPage() {
     } catch (err) {
       setStudentStatus({
         type: "error",
-        text: err.response?.data?.message || "Impossible d'inscrire l'eleve - verifiez les champs.",
+        text: err.response?.data?.message || t("reg.student.error"),
       });
     } finally {
       setSubmittingStudent(false);
@@ -174,7 +175,7 @@ export default function RegistrationPage() {
       if (diploma) formData.append("diploma", diploma);
 
       const { data } = await apiClient.post("/api/v1/registrations/staff", formData);
-      setStaffStatus({ type: "success", text: "Membre du personnel inscrit avec succes." });
+      setStaffStatus({ type: "success", text: t("reg.staff.success") });
       setStaffResult(data);
       setStaff(EMPTY_STAFF);
       setCv(null);
@@ -182,7 +183,7 @@ export default function RegistrationPage() {
     } catch (err) {
       setStaffStatus({
         type: "error",
-        text: err.response?.data?.message || "Impossible d'inscrire ce membre du personnel - verifiez les champs.",
+        text: err.response?.data?.message || t("reg.staff.error"),
       });
     } finally {
       setSubmittingStaff(false);
@@ -200,7 +201,7 @@ export default function RegistrationPage() {
       setNewClassId(data.classId || "");
       setReissueStatus(null);
     } catch {
-      setLookupError("Aucun dossier trouve pour cet identifiant.");
+      setLookupError(t("reg.lookup.notFound"));
     } finally {
       setLoadingLookup(false);
     }
@@ -218,7 +219,7 @@ export default function RegistrationPage() {
     } catch (err) {
       setReissueStatus({
         type: "error",
-        text: err.response?.data?.detail || "Impossible de reemettre la carte - verifiez qu'une carte existe deja pour cet eleve.",
+        text: err.response?.data?.detail || t("reg.lookup.reissue.error") || "Impossible de reemettre la carte - verifiez qu'une carte existe deja pour cet eleve.",
       });
     } finally {
       setReissuingCard(false);
@@ -234,7 +235,7 @@ export default function RegistrationPage() {
       });
       setLookupResult(data);
     } catch (err) {
-      setLookupError(err.response?.data?.message || "Impossible de mettre a jour la classe.");
+      setLookupError(err.response?.data?.message || t("reg.roster.error") || "Impossible de mettre a jour la classe.");
     } finally {
       setAssigningClass(false);
     }
@@ -249,7 +250,7 @@ export default function RegistrationPage() {
       const { data } = await apiClient.get(`/api/v1/registrations/class/${encodeURIComponent(rosterClassId)}`);
       setRoster(data);
     } catch (err) {
-      setRosterError(err.response?.data?.message || "Impossible de charger la liste des eleves.");
+      setRosterError(err.response?.data?.message || t("reg.roster.error") || "Impossible de charger la liste des eleves.");
     } finally {
       setLoadingRoster(false);
     }
@@ -264,29 +265,29 @@ export default function RegistrationPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Inscriptions</h2>
+        <h2 className="text-2xl font-semibold">{t("reg.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Inscrire un eleve ou un membre du personnel, affecter une classe.
+          {t("reg.subtitle")}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Inscrire un eleve</CardTitle>
+            <CardTitle className="text-base">{t("reg.student.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleStudentSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="firstName">Prenom</Label>
+                <Label htmlFor="firstName">{t("reg.student.field.firstName")}</Label>
                 <Input id="firstName" value={student.firstName} onChange={updateStudentField("firstName")} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="lastName">Nom</Label>
+                <Label htmlFor="lastName">{t("reg.student.field.lastName")}</Label>
                 <Input id="lastName" value={student.lastName} onChange={updateStudentField("lastName")} required />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="dateOfBirth">Date de naissance</Label>
+                <Label htmlFor="dateOfBirth">{t("reg.student.field.dob")}</Label>
                 <Input
                   id="dateOfBirth"
                   type="date"
@@ -296,51 +297,50 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="gender">Sexe</Label>
+                <Label htmlFor="gender">{t("reg.student.field.gender")}</Label>
                 <Select value={student.gender} onValueChange={(value) => setStudent((s) => ({ ...s, gender: value }))}>
                   <SelectTrigger id="gender" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="M">Masculin</SelectItem>
-                    <SelectItem value="F">Feminin</SelectItem>
+                    <SelectItem value="M">{t("reg.student.field.gender.m")}</SelectItem>
+                    <SelectItem value="F">{t("reg.student.field.gender.f")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="birthPlace">Lieu de naissance</Label>
+                <Label htmlFor="birthPlace">{t("reg.student.field.birthPlace")}</Label>
                 <Input id="birthPlace" value={student.birthPlace} onChange={updateStudentField("birthPlace")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="address">Adresse</Label>
+                <Label htmlFor="address">{t("reg.student.field.address")}</Label>
                 <Input id="address" value={student.address} onChange={updateStudentField("address")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="nationalNumber">Numero National</Label>
+                <Label htmlFor="nationalNumber">{t("reg.student.field.nationalNumber")}</Label>
                 <Input id="nationalNumber" value={student.nationalNumber} onChange={updateStudentField("nationalNumber")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="classId">Classe</Label>
-                <Select value={student.classId} onValueChange={(value) => setStudent((s) => ({ ...s, classId: value }))}>
-                  <SelectTrigger id="classId" className="w-full">
-                    <SelectValue placeholder="Choisir une classe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classes.length === 0 && (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                        Aucune classe - a creer dans "Classes &amp; matieres"
-                      </div>
-                    )}
-                    {classes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {classLabel(c)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="classId">{t("reg.student.field.class")}</Label>
+                <select
+                  id="classId"
+                  value={student.classId}
+                  onChange={(e) => setStudent((s) => ({ ...s, classId: e.target.value }))}
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+                >
+                  <option value="">{t("reg.student.field.class.placeholder")}</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {classLabel(c)}
+                    </option>
+                  ))}
+                </select>
+                {classes.length === 0 && (
+                  <p className="text-xs text-muted-foreground">{t("reg.student.field.class.empty")}</p>
+                )}
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="guardianName">Nom du tuteur/parent</Label>
+                <Label htmlFor="guardianName">{t("reg.student.field.guardian")}</Label>
                 <Input
                   id="guardianName"
                   value={student.guardianName}
@@ -349,7 +349,7 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="parentEmail">Email du parent</Label>
+                <Label htmlFor="parentEmail">{t("reg.student.field.parentEmail")}</Label>
                 <Input
                   id="parentEmail"
                   type="email"
@@ -359,7 +359,7 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="parentEmailConfirm">Confirmer l'email du parent</Label>
+                <Label htmlFor="parentEmailConfirm">{t("reg.student.field.parentEmailConfirm")}</Label>
                 <Input
                   id="parentEmailConfirm"
                   type="email"
@@ -369,20 +369,20 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="parentPhone">Telephone du parent</Label>
+                <Label htmlFor="parentPhone">{t("reg.student.field.parentPhone")}</Label>
                 <Input id="parentPhone" value={student.parentPhone} onChange={updateStudentField("parentPhone")} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="secondGuardianName">Deuxieme tuteur/parent (optionnel)</Label>
+                <Label htmlFor="secondGuardianName">{t("reg.student.field.secondGuardian")}</Label>
                 <Input
                   id="secondGuardianName"
-                  placeholder="Nom (ex. l'autre parent)"
+                  placeholder={t("reg.student.field.secondGuardian.placeholder")}
                   value={student.secondGuardianName}
                   onChange={updateStudentField("secondGuardianName")}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="secondGuardianEmail">Email du deuxieme tuteur</Label>
+                <Label htmlFor="secondGuardianEmail">{t("reg.student.field.secondGuardianEmail")}</Label>
                 <Input
                   id="secondGuardianEmail"
                   type="email"
@@ -391,17 +391,17 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="secondGuardianPhone">Telephone du deuxieme tuteur</Label>
+                <Label htmlFor="secondGuardianPhone">{t("reg.student.field.secondGuardianPhone")}</Label>
                 <Input
                   id="secondGuardianPhone"
                   value={student.secondGuardianPhone}
                   onChange={updateStudentField("secondGuardianPhone")}
                 />
               </div>
-              <FileDropzone id="photo" label="Photo" file={studentPhoto} onChange={setStudentPhoto} />
+              <FileDropzone id="photo" label={t("reg.student.field.photo")} file={studentPhoto} onChange={setStudentPhoto} />
               <FileDropzone
                 id="birthCertificate"
-                label="Acte de naissance"
+                label={t("reg.student.field.birthCertificate")}
                 file={birthCertificate}
                 onChange={setBirthCertificate}
               />
@@ -412,17 +412,17 @@ export default function RegistrationPage() {
               )}
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={submittingStudent}>
-                  {submittingStudent ? "Inscription..." : "Inscrire l'eleve"}
+                  {submittingStudent ? t("reg.student.submitting") : t("reg.student.submit")}
                 </Button>
               </div>
             </form>
             {studentResult && (
               <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 <p>
-                  Dossier <span className="font-mono">{studentResult.id}</span>
+                  {t("reg.lookup.field.id")} <span className="font-mono">{studentResult.id}</span>
                 </p>
                 <p className="text-muted-foreground">
-                  Statut : <Badge variant={statusOf(REGISTRATION_STATUS, studentResult.status).variant}>
+                  {t("reg.lookup.type")} : <Badge variant={statusOf(REGISTRATION_STATUS, studentResult.status).variant}>
                     {statusOf(REGISTRATION_STATUS, studentResult.status).label}
                   </Badge>
                 </p>
@@ -433,12 +433,12 @@ export default function RegistrationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Inscrire un membre du personnel</CardTitle>
+            <CardTitle className="text-base">{t("reg.staff.title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleStaffSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="staffFirstName">Prenom</Label>
+                <Label htmlFor="staffFirstName">{t("reg.staff.field.firstName")}</Label>
                 <Input
                   id="staffFirstName"
                   value={staff.firstName}
@@ -447,11 +447,11 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staffLastName">Nom</Label>
+                <Label htmlFor="staffLastName">{t("reg.staff.field.lastName")}</Label>
                 <Input id="staffLastName" value={staff.lastName} onChange={updateStaffField("lastName")} required />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="staffEmail">Email</Label>
+                <Label htmlFor="staffEmail">{t("reg.staff.field.email")}</Label>
                 <Input
                   id="staffEmail"
                   type="email"
@@ -461,35 +461,35 @@ export default function RegistrationPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staffPhone">Telephone</Label>
+                <Label htmlFor="staffPhone">{t("reg.staff.field.phone")}</Label>
                 <Input id="staffPhone" value={staff.phone} onChange={updateStaffField("phone")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staffGender">Sexe</Label>
+                <Label htmlFor="staffGender">{t("reg.staff.field.gender")}</Label>
                 <Select value={staff.gender} onValueChange={(value) => setStaff((s) => ({ ...s, gender: value }))}>
                   <SelectTrigger id="staffGender" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="M">Masculin</SelectItem>
-                    <SelectItem value="F">Feminin</SelectItem>
+                    <SelectItem value="M">{t("reg.student.field.gender.m")}</SelectItem>
+                    <SelectItem value="F">{t("reg.student.field.gender.f")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staffBirthPlace">Lieu de naissance</Label>
+                <Label htmlFor="staffBirthPlace">{t("reg.staff.field.birthPlace")}</Label>
                 <Input id="staffBirthPlace" value={staff.birthPlace} onChange={updateStaffField("birthPlace")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staffAddress">Adresse</Label>
+                <Label htmlFor="staffAddress">{t("reg.staff.field.address")}</Label>
                 <Input id="staffAddress" value={staff.address} onChange={updateStaffField("address")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staffNationalNumber">Numero National</Label>
+                <Label htmlFor="staffNationalNumber">{t("reg.staff.field.nationalNumber")}</Label>
                 <Input id="staffNationalNumber" value={staff.nationalNumber} onChange={updateStaffField("nationalNumber")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staffRole">Role</Label>
+                <Label htmlFor="staffRole">{t("reg.staff.field.role")}</Label>
                 <Select value={staff.role} onValueChange={(value) => setStaff((s) => ({ ...s, role: value }))}>
                   <SelectTrigger id="staffRole" className="w-full">
                     <SelectValue />
@@ -504,12 +504,12 @@ export default function RegistrationPage() {
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="staffEstablishmentId">{t("reg.field.school") || "School"}</Label>
+                <Label htmlFor="staffEstablishmentId">{t("reg.field.school")}</Label>
                 <select
                   id="staffEstablishmentId"
                   value={staff.establishmentId}
                   onChange={(e) => setStaff((s) => ({ ...s, establishmentId: e.target.value }))}
-                  className="flex h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
                   required
                 >
                   <option value="">{t("reg.field.school.placeholder") || "Select a school"}</option>
@@ -519,10 +519,10 @@ export default function RegistrationPage() {
                     </option>
                   ))}
                 </select>
-                {establishments.length === 0 && <p className="text-xs text-amber-600">{t("classes.field.establishment.empty")}</p>}
+                {establishments.length === 0 && <p className="text-xs text-amber-600 dark:text-amber-400">{t("classes.field.establishment.empty")}</p>}
               </div>
-              <FileDropzone id="cv" label="CV" file={cv} onChange={setCv} />
-              <FileDropzone id="diploma" label="Diplome" file={diploma} onChange={setDiploma} />
+              <FileDropzone id="cv" label={t("reg.staff.field.cv")} file={cv} onChange={setCv} />
+              <FileDropzone id="diploma" label={t("reg.staff.field.diploma")} file={diploma} onChange={setDiploma} />
               {staffStatus && (
                 <Alert variant={staffStatus.type === "success" ? "success" : "error"} className="sm:col-span-2">
                   {staffStatus.text}
@@ -530,17 +530,17 @@ export default function RegistrationPage() {
               )}
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={submittingStaff}>
-                  {submittingStaff ? "Inscription..." : "Inscrire le membre du personnel"}
+                  {submittingStaff ? t("reg.staff.submitting") : t("reg.staff.submit")}
                 </Button>
               </div>
             </form>
             {staffResult && (
               <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-sm">
                 <p>
-                  Dossier <span className="font-mono">{staffResult.id}</span>
+                  {t("reg.lookup.field.id")} <span className="font-mono">{staffResult.id}</span>
                 </p>
                 <p className="text-muted-foreground">
-                  Statut : <Badge variant={statusOf(REGISTRATION_STATUS, staffResult.status).variant}>
+                  {t("reg.lookup.type")} : <Badge variant={statusOf(REGISTRATION_STATUS, staffResult.status).variant}>
                     {statusOf(REGISTRATION_STATUS, staffResult.status).label}
                   </Badge>
                 </p>
@@ -552,17 +552,17 @@ export default function RegistrationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Consulter un dossier / affecter une classe</CardTitle>
-          <CardDescription>Rechercher un dossier d'inscription par identifiant.</CardDescription>
+          <CardTitle className="text-base">{t("reg.lookup.title")}</CardTitle>
+          <CardDescription>{t("reg.lookup.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleLookup} className="flex flex-wrap items-end gap-3">
             <div className="min-w-64 flex-1 space-y-1.5">
-              <Label htmlFor="lookupId">Identifiant du dossier</Label>
+              <Label htmlFor="lookupId">{t("reg.lookup.field.id")}</Label>
               <Input id="lookupId" value={lookupId} onChange={(e) => setLookupId(e.target.value)} required />
             </div>
             <Button type="submit" disabled={loadingLookup}>
-              {loadingLookup ? "Recherche..." : "Rechercher"}
+              {loadingLookup ? t("common.searching") : t("reg.lookup.search")}
             </Button>
           </form>
 
@@ -574,17 +574,17 @@ export default function RegistrationPage() {
                 <p className="font-medium">
                   {lookupResult.firstName} {lookupResult.lastName}
                 </p>
-                <p className="text-muted-foreground">Type : {lookupResult.type}</p>
+                <p className="text-muted-foreground">{t("reg.lookup.type")} : {lookupResult.type}</p>
                 {lookupResult.type === "STUDENT" && (
                   <p className="text-muted-foreground">
-                    Tuteur(s) :{" "}
+                    {t("reg.lookup.guardians")} :{" "}
                     {lookupResult.guardians?.length > 0
                       ? lookupResult.guardians.map((g) => `${g.fullName} (${g.email})`).join(", ")
                       : "-"}
                   </p>
                 )}
                 <p className="text-muted-foreground">
-                  Classe actuelle : {lookupResult.classId ? classNameById(lookupResult.classId) : "-"}
+                  {t("reg.lookup.currentClass")} : {lookupResult.classId ? classNameById(lookupResult.classId) : "-"}
                 </p>
                 <p className="text-muted-foreground">
                   Statut : <Badge variant={statusOf(REGISTRATION_STATUS, lookupResult.status).variant}>
@@ -595,29 +595,30 @@ export default function RegistrationPage() {
               {lookupResult.type === "STUDENT" && (
                 <form onSubmit={handleAssignClass} className="flex items-end gap-3">
                   <div className="flex-1 space-y-1.5">
-                    <Label htmlFor="newClassId">Nouvelle classe</Label>
-                    <Select value={newClassId} onValueChange={setNewClassId}>
-                      <SelectTrigger id="newClassId" className="w-full">
-                        <SelectValue placeholder="Choisir une classe" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {classesForReassign.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {classLabel(c)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="newClassId">{t("reg.lookup.newClass")}</Label>
+                    <select
+                      id="newClassId"
+                      value={newClassId}
+                      onChange={(e) => setNewClassId(e.target.value)}
+                      className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+                    >
+                      <option value="">{t("reg.student.field.class.placeholder")}</option>
+                      {classesForReassign.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {classLabel(c)}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <Button type="submit" disabled={assigningClass || !newClassId}>
-                    {assigningClass ? "..." : "Affecter"}
+                    {assigningClass ? t("common.loading") : t("reg.lookup.assign")}
                   </Button>
                 </form>
               )}
               {lookupResult.type === "STUDENT" && (
                 <div className="space-y-2 sm:col-span-2">
                   <Button type="button" variant="outline" disabled={reissuingCard} onClick={handleReissueCard}>
-                    {reissuingCard ? "Reemission..." : "Reemettre la carte scolaire"}
+                    {reissuingCard ? t("reg.lookup.reissuing") : t("reg.lookup.reissue")}
                   </Button>
                   {reissueStatus && (
                     <Alert variant={reissueStatus.type === "success" ? "success" : "error"}>
@@ -633,40 +634,41 @@ export default function RegistrationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Liste des eleves d'une classe</CardTitle>
-          <CardDescription>Rechercher tous les eleves inscrits dans une classe.</CardDescription>
+          <CardTitle className="text-base">{t("reg.roster.title")}</CardTitle>
+          <CardDescription>{t("reg.roster.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleRosterSearch} className="flex flex-wrap items-end gap-3">
             <div className="min-w-64 flex-1 space-y-1.5">
-              <Label htmlFor="rosterClassId">Classe</Label>
-              <Select value={rosterClassId} onValueChange={setRosterClassId}>
-                <SelectTrigger id="rosterClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe" />
-                </SelectTrigger>
-                <SelectContent>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {classLabel(c)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="rosterClassId">{t("reg.roster.field.class")}</Label>
+              <select
+                id="rosterClassId"
+                value={rosterClassId}
+                onChange={(e) => setRosterClassId(e.target.value)}
+                className="flex h-8 w-full rounded-lg border border-input bg-popover px-2.5 text-sm text-popover-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&>option]:bg-popover [&>option]:text-popover-foreground"
+              >
+                <option value="">{t("reg.roster.field.class.placeholder")}</option>
+                {classes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {classLabel(c)}
+                  </option>
+                ))}
+              </select>
             </div>
             <Button type="submit" disabled={loadingRoster || !rosterClassId}>
-              {loadingRoster ? "Recherche..." : "Afficher"}
+              {loadingRoster ? t("common.searching") : t("reg.roster.show")}
             </Button>
           </form>
 
           {rosterError && <Alert variant="error">{rosterError}</Alert>}
-          {roster && roster.length === 0 && <EmptyState icon={Users} message="Aucun eleve dans cette classe." />}
+          {roster && roster.length === 0 && <EmptyState icon={Users} message={t("reg.roster.empty")} />}
           {roster && roster.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Tuteur/parent</TableHead>
-                  <TableHead>Statut</TableHead>
+                  <TableHead>{t("reg.roster.table.name")}</TableHead>
+                  <TableHead>{t("reg.roster.table.guardian")}</TableHead>
+                  <TableHead>{t("reg.roster.table.status")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

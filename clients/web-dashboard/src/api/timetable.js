@@ -30,3 +30,7 @@ export const restoreOccurrence = (classTimeId, date) => apiClient.patch(`/api/v1
 // --- Simulate ---
 export const fetchClassroomTimetable = (classroomId, params={}) => apiClient.get(`/api/v1/timetable/classroom/${classroomId}/simulate`, { params }).then(r=>r.data);
 export const fetchTeacherTimetable = (teacherId, params={}) => apiClient.get(`/api/v1/timetable/teacher/${teacherId}/simulate`, { params }).then(r=>r.data);
+
+// --- Seed defaults (wyscolars SessionCreateEventListener parity) + print pivot ---
+export const seedDefaults = (params={}) => apiClient.post("/api/v1/timetable/seed-defaults", null, { params }).then(r=>r.data);
+export const fetchClassroomPrint = (classroomId, params={}) => apiClient.get(`/api/v1/timetable/classroom/${classroomId}/print`, { params }).then(r=>r.data);

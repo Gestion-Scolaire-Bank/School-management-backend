@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { GraduationCap } from "lucide-react";
 import apiClient from "../api/client";
 import { getUser } from "../api/auth";
+import { useI18n } from "@/lib/i18n";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ function studentLabel(s) {
 // la synthese et le bulletin telechargeable par le parent (ChildPage.jsx) restent vides/404.
 // POST /api/v1/reports/generate : role Administrateur uniquement.
 export default function GradesPage() {
+  const { t } = useI18n();
   const role = getUser()?.role;
   const isTeacher = role === "ENSEIGNANT";
   const isAdmin = role === "ADMINISTRATEUR";
@@ -66,7 +68,7 @@ export default function GradesPage() {
     apiClient
       .get("/api/v1/admin/classes")
       .then((res) => setClasses(res.data || []))
-      .catch(() => setClasses([]));
+      .catch(() => {});
   }, []);
 
   // Le programme (matieres) depend de la classe choisie - on ne propose que les matieres
@@ -76,10 +78,11 @@ export default function GradesPage() {
       setGradeClassSubjects([]);
       return;
     }
+    // keep previous subjects visible while loading
     apiClient
       .get(`/api/v1/admin/classes/${grade.class_id}/subjects`)
       .then((res) => setGradeClassSubjects(res.data || []))
-      .catch(() => setGradeClassSubjects([]));
+      .catch(() => {});
   }, [grade.class_id]);
 
   // La liste des eleves depend de la classe choisie - evite de devoir taper un UUID d'eleve a
@@ -90,10 +93,11 @@ export default function GradesPage() {
       setGradeClassStudents([]);
       return;
     }
+    // keep previous list visible while loading (no flicker/disappear on input blur)
     apiClient
       .get(`/api/v1/registrations/class/${grade.class_id}`)
       .then((res) => setGradeClassStudents(res.data || []))
-      .catch(() => setGradeClassStudents([]));
+      .catch(() => {});
   }, [grade.class_id]);
 
   const [classEvaluations, setClassEvaluations] = useState([]);
@@ -105,7 +109,7 @@ export default function GradesPage() {
     apiClient
       .get("/api/v1/pedagogic/evaluations", { params: { class_id: grade.class_id, subject_id: grade.subject_id } })
       .then((res) => setClassEvaluations(res.data || []))
-      .catch(() => setClassEvaluations([]));
+      .catch(() => {});
   }, [grade.class_id, grade.subject_id]);
 
   function updateGradeField(field) {
@@ -124,14 +128,14 @@ export default function GradesPage() {
         max_score: Number(grade.max_score),
         weight: Number(grade.weight),
       });
-      setGradeStatus({ type: "success", text: "Note enregistree." });
+      setGradeStatus({ type: "success", text: t("grades.entry.success") });
       setGrade((g) => ({ ...EMPTY_GRADE, class_id: g.class_id, period: g.period }));
     } catch (err) {
       const detail = err.response?.data?.detail;
       const text =
         err.response?.status === 403
-          ? "Vous n'etes pas affecte a cette classe/matiere - demandez a l'administrateur de vous y affecter."
-          : detail || "Impossible d'enregistrer la note - verifiez les champs.";
+          ? t("grades.entry.forbidden")
+          : detail || t("grades.entry.error");
       setGradeStatus({ type: "error", text });
     } finally {
       setSubmitting(false);
@@ -147,11 +151,11 @@ export default function GradesPage() {
         class_id: generateClassId,
         period: generatePeriod,
       });
-      setGenerateStatus({ type: "success", text: `${data.length} bulletin(s) genere(s).` });
+      setGenerateStatus({ type: "success", text: t("grades.generate.success", { count: data.length }) });
     } catch (err) {
       setGenerateStatus({
         type: "error",
-        text: err.response?.data?.detail || "Echec de la generation - verifiez qu'il existe des notes pour cette classe/periode.",
+        text: err.response?.data?.detail || t("grades.generate.error"),
       });
     } finally {
       setGenerating(false);
@@ -170,7 +174,7 @@ export default function GradesPage() {
       );
       setSummary(data);
     } catch {
-      setSummaryError("Synthese indisponible pour cette classe/periode.");
+      setSummaryError(t("grades.summary.error"));
     } finally {
       setLoadingSummary(false);
     }
@@ -179,26 +183,26 @@ export default function GradesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Notes &amp; bulletins</h2>
-        <p className="text-sm text-muted-foreground">Saisie des notes et synthese de classe.</p>
+        <h2 className="text-2xl font-semibold">{t("grades.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("grades.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
       {isTeacher && (
       <Card className="xl:col-span-2">
         <CardHeader>
-          <CardTitle className="text-base">Saisir une note</CardTitle>
+          <CardTitle className="text-base">{t("grades.entry.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleGradeSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="class_id">Classe</Label>
+              <Label htmlFor="class_id">{t("grades.field.class")}</Label>
               <Select
                 value={grade.class_id}
                 onValueChange={(value) => setGrade((g) => ({ ...g, class_id: value, subject_id: "", student_id: "" }))}
               >
                 <SelectTrigger id="class_id" className="w-full">
-                  <SelectValue placeholder="Choisir une classe" />
+                  <SelectValue placeholder={t("grades.field.class.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -210,19 +214,19 @@ export default function GradesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="student_id">Eleve</Label>
+              <Label htmlFor="student_id">{t("grades.field.student")}</Label>
               <Select
                 value={grade.student_id}
                 onValueChange={(value) => setGrade((g) => ({ ...g, student_id: value }))}
                 disabled={!grade.class_id}
               >
                 <SelectTrigger id="student_id" className="w-full">
-                  <SelectValue placeholder={grade.class_id ? "Choisir un eleve" : "Choisissez d'abord une classe"} />
+                  <SelectValue placeholder={grade.class_id ? t("grades.field.student.placeholder") : t("grades.field.chooseClassFirst")} />
                 </SelectTrigger>
                 <SelectContent>
                   {grade.class_id && gradeClassStudents.length === 0 && (
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      Aucun eleve inscrit dans cette classe
+                      {t("grades.empty.noStudents")}
                     </div>
                   )}
                   {gradeClassStudents.map((s) => (
@@ -234,17 +238,17 @@ export default function GradesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="period">Periode</Label>
+              <Label htmlFor="period">{t("grades.field.period")}</Label>
               <Input
                 id="period"
-                placeholder="ex. Trimestre1"
+                placeholder={t("grades.field.period.placeholder")}
                 value={grade.period}
                 onChange={updateGradeField("period")}
                 required
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="subject_id">Matiere</Label>
+              <Label htmlFor="subject_id">{t("grades.field.subject")}</Label>
               <Select
                 value={grade.subject_id}
                 onValueChange={(value) => setGrade((g) => ({ ...g, subject_id: value }))}
@@ -252,13 +256,13 @@ export default function GradesPage() {
               >
                 <SelectTrigger id="subject_id" className="w-full">
                   <SelectValue
-                    placeholder={grade.class_id ? "Choisir une matiere" : "Choisissez d'abord une classe"}
+                    placeholder={grade.class_id ? t("grades.field.subject.placeholder") : t("grades.field.chooseClassFirst")}
                    />
                 </SelectTrigger>
                 <SelectContent>
                   {gradeClassSubjects.length === 0 && (
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      Aucune matiere pour cette classe - a definir dans "Classes &amp; matieres"
+                      {t("grades.empty.noSubjects")}
                     </div>
                   )}
                   {gradeClassSubjects.map((cs) => (
@@ -270,7 +274,7 @@ export default function GradesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="evaluation_id">Evaluation (optionnel)</Label>
+              <Label htmlFor="evaluation_id">{t("grades.field.evaluation")}</Label>
               <Select
                 value={grade.evaluation_id}
                 onValueChange={(value) => setGrade((g) => ({ ...g, evaluation_id: value }))}
@@ -278,11 +282,11 @@ export default function GradesPage() {
               >
                 <SelectTrigger id="evaluation_id" className="w-full">
                   <SelectValue
-                    placeholder={grade.subject_id ? "Aucune" : "Choisissez une matiere d'abord"}
+                    placeholder={grade.subject_id ? t("grades.field.evaluation.none") : t("grades.field.evaluation.chooseSubjectFirst")}
                    />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Aucune (saisie libre)</SelectItem>
+                  <SelectItem value="none">{t("grades.field.evaluation.free")}</SelectItem>
                   {classEvaluations.map((ev) => (
                     <SelectItem key={ev.id} value={ev.id}>
                       {ev.title} ({ev.evaluation_type})
@@ -292,7 +296,7 @@ export default function GradesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="score">Note</Label>
+              <Label htmlFor="score">{t("grades.field.score")}</Label>
               <Input
                 id="score"
                 type="number"
@@ -304,7 +308,7 @@ export default function GradesPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="max_score">Bareme</Label>
+              <Label htmlFor="max_score">{t("grades.field.maxScore")}</Label>
               <Input
                 id="max_score"
                 type="number"
@@ -315,7 +319,7 @@ export default function GradesPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="weight">Coefficient</Label>
+              <Label htmlFor="weight">{t("grades.field.weight")}</Label>
               <Input
                 id="weight"
                 type="number"
@@ -332,7 +336,7 @@ export default function GradesPage() {
             )}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={submitting || !grade.subject_id || !grade.student_id}>
-                {submitting ? "Enregistrement..." : "Enregistrer la note"}
+                {submitting ? t("grades.entry.submitting") : t("grades.entry.submit")}
               </Button>
             </div>
           </form>
@@ -343,20 +347,18 @@ export default function GradesPage() {
       {isAdmin && (
       <Card className="xl:col-span-2">
         <CardHeader>
-          <CardTitle className="text-base">Generer les bulletins</CardTitle>
+          <CardTitle className="text-base">{t("grades.generate.title")}</CardTitle>
           <CardDescription>
-            Calcule les moyennes/rangs et produit le PDF de chaque eleve pour une classe et une
-            periode, a partir des notes deja saisies. Necessaire avant que la synthese ci-contre
-            et le bulletin telechargeable par les parents ne soient disponibles.
+            {t("grades.generate.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleGenerateSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="generateClassId">Classe</Label>
+              <Label htmlFor="generateClassId">{t("grades.field.class")}</Label>
               <Select value={generateClassId} onValueChange={setGenerateClassId}>
                 <SelectTrigger id="generateClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe" />
+                  <SelectValue placeholder={t("grades.field.class.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -368,10 +370,10 @@ export default function GradesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="generatePeriod">Periode</Label>
+              <Label htmlFor="generatePeriod">{t("grades.field.period")}</Label>
               <Input
                 id="generatePeriod"
-                placeholder="ex. Trimestre1"
+                placeholder={t("grades.field.period.placeholder")}
                 value={generatePeriod}
                 onChange={(e) => setGeneratePeriod(e.target.value)}
                 required
@@ -384,7 +386,7 @@ export default function GradesPage() {
             )}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={generating || !generateClassId}>
-                {generating ? "Generation..." : "Generer les bulletins"}
+                {generating ? t("grades.generate.generating") : t("grades.generate.submit")}
               </Button>
             </div>
           </form>
@@ -394,16 +396,16 @@ export default function GradesPage() {
 
       <Card className={isTeacher || isAdmin ? "xl:col-span-3" : "xl:col-span-5"}>
         <CardHeader>
-          <CardTitle className="text-base">Synthese de classe</CardTitle>
-          <CardDescription>Moyennes et rangs par eleve, pour une classe et une periode.</CardDescription>
+          <CardTitle className="text-base">{t("grades.summary.title")}</CardTitle>
+          <CardDescription>{t("grades.summary.description")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={handleSummarySubmit} className="flex flex-wrap items-end gap-3">
             <div className="min-w-56 space-y-1.5">
-              <Label htmlFor="summaryClassId">Classe</Label>
+              <Label htmlFor="summaryClassId">{t("grades.field.class")}</Label>
               <Select value={summaryClassId} onValueChange={setSummaryClassId}>
                 <SelectTrigger id="summaryClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe" />
+                  <SelectValue placeholder={t("grades.field.class.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -415,7 +417,7 @@ export default function GradesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="summaryPeriod">Periode</Label>
+              <Label htmlFor="summaryPeriod">{t("grades.field.period")}</Label>
               <Input
                 id="summaryPeriod"
                 value={summaryPeriod}
@@ -424,7 +426,7 @@ export default function GradesPage() {
               />
             </div>
             <Button type="submit" disabled={loadingSummary || !summaryClassId}>
-              {loadingSummary ? "Chargement..." : "Voir la synthese"}
+              {loadingSummary ? t("grades.summary.loading") : t("grades.summary.show")}
             </Button>
           </form>
 
@@ -433,27 +435,24 @@ export default function GradesPage() {
           {summary && summary.student_count === 0 && (
             <EmptyState
               icon={GraduationCap}
-              message={
-                "Aucun bulletin genere pour cette classe/periode" +
-                (isAdmin
-                  ? " - utilisez \"Generer les bulletins\" ci-contre."
-                  : " - demandez a l'administrateur de generer les bulletins.")
-              }
+              message={t("grades.summary.empty", {
+                hint: isAdmin ? t("grades.summary.empty.hintAdmin") : t("grades.summary.empty.hintTeacher"),
+              })}
             />
           )}
 
           {summary && summary.student_count > 0 && (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                {summary.student_count} eleve(s) - moyenne de classe :{" "}
+                {t("grades.summary.statsPrefix", { count: summary.student_count })}{" "}
                 <span className="font-medium text-foreground">{summary.class_average.toFixed(2)}/20</span>
               </p>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Eleve</TableHead>
-                    <TableHead>Moyenne</TableHead>
-                    <TableHead>Rang</TableHead>
+                    <TableHead>{t("grades.table.student")}</TableHead>
+                    <TableHead>{t("grades.table.average")}</TableHead>
+                    <TableHead>{t("grades.table.rank")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

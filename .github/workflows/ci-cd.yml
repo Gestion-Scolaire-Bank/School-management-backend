@@ -63,6 +63,7 @@ jobs:
       - name: Detecter la stack technique du service
         id: stack
         run: |
+          if [ "${{ matrix.service }}" = "web-dashboard" ]; then echo "type=web-dashboard" >> "$GITHUB_OUTPUT"; exit 0; fi
           cd services/${{ matrix.service }}
           if [ -f pom.xml ]; then echo "type=java" >> "$GITHUB_OUTPUT"
           elif [ -f package.json ]; then echo "type=node" >> "$GITHUB_OUTPUT"
@@ -91,7 +92,13 @@ jobs:
         working-directory: services/${{ matrix.service }}
         run: |
           npm ci
-          npm test -- --run 2>&1 | head -n 200
+          npm test -- --ci 2>&1 | head -n 200
+
+      - name: System libs (reportcard-service only, WeasyPrint/Pango)
+        if: steps.stack.outputs.type == 'python' && matrix.service == 'reportcard-service'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 libffi-dev shared-mime-info
 
       - name: Setup Python 3.11
         if: steps.stack.outputs.type == 'python'
@@ -107,11 +114,15 @@ jobs:
 
       # --------------------------------------------------------------
       # 3 - Scan de vulnerabilites (Trivy) sur l'image Docker candidate
+      # (web-dashboard est teste/deploys via le job web-tests,
+      #  pas ici : son contexte Docker est clients/web-dashboard)
       # --------------------------------------------------------------
       - name: Build image Docker locale
+        if: steps.stack.outputs.type != 'web-dashboard'
         run: docker build -t schoolmanage/${{ matrix.service }}:${{ github.sha }} services/${{ matrix.service }}
 
       - name: Scan Trivy (CVE critiques)
+        if: steps.stack.outputs.type != 'web-dashboard'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: schoolmanage/${{ matrix.service }}:${{ github.sha }}
@@ -122,8 +133,8 @@ jobs:
           output: trivy-${{ matrix.service }}.sarif
 
       - name: Upload Trivy SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        if: always() && steps.stack.outputs.type != 'web-dashboard'
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-${{ matrix.service }}.sarif
 
@@ -131,7 +142,7 @@ jobs:
       # 4 - Push vers GitHub Container Registry
       # --------------------------------------------------------------
       - name: Login GHCR
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.stack.outputs.type != 'web-dashboard'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -139,7 +150,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push image
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.stack.outputs.type != 'web-dashboard'
         run: |
           IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}-${{ matrix.service }}
           docker tag schoolmanage/${{ matrix.service }}:${{ github.sha }} $IMAGE:${{ github.sha }}
@@ -155,7 +166,7 @@ jobs:
   # --------------------------------------------------------------
   web-tests:
     needs: detect-changes
-    if: contains(needs.detect-changes.outputs.services, 'web-dashboard')
+    if: contains(fromJSON(needs.detect-changes.outputs.services), 'web-dashboard')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -198,11 +209,17 @@ jobs:
   # ------------------------------------------------------------------
   deploy-prod:
     needs: deploy-staging
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v4
       - name: Configurer kubeconfig
-        run: echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > kubeconfig.yaml
+        run: |
+          if [ -z "${{ secrets.KUBE_CONFIG_PROD }}" ]; then echo "::warning::KUBE_CONFIG_PROD not set - skipping deploy"; exit 0; fi
+          echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 -d > kubeconfig.yaml
       - name: Deployer en production (Rolling Update)
-        run: kubectl --kubeconfig kubeconfig.yaml apply -f infra/k8s -n schoolmanage-prod
+        run: |
+          if [ ! -f kubeconfig.yaml ]; then echo "skip deploy - no kubeconfig"; exit 0; fi
+          kubectl --kubeconfig kubeconfig.yaml apply -f infra/k8s/services/ -n schoolmanage-prod
+          kubectl --kubeconfig kubeconfig.yaml apply -f infra/k8s/ingress.yaml -n schoolmanage-prod || true

@@ -13,22 +13,37 @@ import { EmptyState } from "@/components/EmptyState";
 import { toast } from "@/components/ui/toast";
 import { CalendarDays, Clock, Coffee, Palmtree, Move, Ban } from "lucide-react";
 import { getUser } from "../api/auth";
-
-const DAYS = { 1: "Lundi", 2: "Mardi", 3: "Mercredi", 4: "Jeudi", 5: "Vendredi", 6: "Samedi", 7: "Dimanche" };
-const DAY_OPTIONS = [1,2,3,4,5,6].map(n=>({value:String(n), label:DAYS[n]}));
+import { useI18n } from "@/lib/i18n";
 
 function toMinutes(v){
-  if(v.includes(":")){ const [h,m]=v.split(":").map(Number); return h*60+m;}
+  if(v == null || v === "") return NaN;
+  if(typeof v === "number") return v;
+  if(String(v).includes(":")){ const [h,m]=String(v).split(":").map(Number); return h*60+m;}
   return Number(v);
 }
+
 function fmt(m){ const h=Math.floor(m/60), mi=m%60; return `${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}`; }
 
+// wyscolars parity (helpers/toCalendarEvents.ts): client-side overlap guard.
+// Back-to-back slots are allowed; breaks count as blocking.
+function hasTimeOverlap(daySlots, newStart, newEnd, ignoreKey = null){
+  return daySlots.some((sl)=>{
+    const key = `${sl.startTime}-${sl.endTime}-${sl.classTimeId || "break"}`;
+    if(ignoreKey && key === ignoreKey) return false;
+    return newStart < sl.endTime && sl.startTime < newEnd;
+  });
+}
+
 export default function TimetablePage(){
+  const { t } = useI18n();
+  const DAYS = { 1: t("tt.day.1"), 2: t("tt.day.2"), 3: t("tt.day.3"), 4: t("tt.day.4"), 5: t("tt.day.5"), 6: t("tt.day.6"), 7: t("tt.day.7") };
+  const DAY_OPTIONS = [1,2,3,4,5,6].map(n=>({value:String(n), label:DAYS[n]}));
   const role = getUser()?.role;
   const canManage = role==="ADMINISTRATEUR" || role==="DIRECTEUR";
   const [classes,setClasses]=useState([]);
   const [subjects,setSubjects]=useState([]);
   const [establishments,setEstablishments]=useState([]);
+  const [teachers,setTeachers]=useState([]);
   // creates
   const [ctForm,setCtForm]=useState({classroomId:"", subjectId:"", teacherId:"", startTime:"08:00", endTime:"09:00", dayOfWeek:"1"});
   const [ctStatus,setCtStatus]=useState(null);
@@ -55,64 +70,74 @@ export default function TimetablePage(){
   const [ttError,setTtError]=useState(null);
 
   function loadRef(){
+    // stale-while-revalidate: never wipe reference lists on error
     apiClient.get("/api/v1/admin/classes").then(r=>setClasses(r.data||[])).catch(()=>{});
     apiClient.get("/api/v1/admin/subjects").then(r=>setSubjects(r.data||[])).catch(()=>{});
     apiClient.get("/api/v1/admin/establishments").then(r=>setEstablishments(r.data||[])).catch(()=>{});
-    loadLists();
+    apiClient.get("/api/auth/users").then(r=>{
+      const list=(r.data||[]).filter(u=>u.role==="ENSEIGNANT");
+      setTeachers(list);
+    }).catch(()=>{});
+    loadStaticLists();
   }
-  function loadLists(){
-    tt.fetchClassTimes(filterClassroom?{classroomId:filterClassroom}:{}).then(r=>setCtList(r.data||[])).catch(()=>setCtList([]));
-    tt.fetchBreakTimes().then(r=>setBtList(r.data||[])).catch(()=>setBtList([]));
-    tt.fetchHolidays().then(r=>setHolList(r.data||[])).catch(()=>setHolList([]));
+  function loadStaticLists(){
+    // breaks/holidays are school-wide: fetch once, not on every class filter change
+    tt.fetchBreakTimes().then(r=>setBtList(r.data||[])).catch(()=>{});
+    tt.fetchHolidays().then(r=>setHolList(r.data||[])).catch(()=>{});
   }
+  function loadClassTimes(){
+    // only the classroom-filtered list refetches on filter change; keep stale rows visible
+    tt.fetchClassTimes(filterClassroom?{classroomId:filterClassroom}:{}).then(r=>setCtList(r.data||[])).catch(()=>{});
+  }
+  function loadLists(){ loadClassTimes(); loadStaticLists(); }
   useEffect(()=>{ loadRef(); },[]);
-  useEffect(()=>{ loadLists(); },[filterClassroom]);
+  useEffect(()=>{ loadClassTimes(); },[filterClassroom]);
 
   async function handleCreateCT(e){
     e.preventDefault(); setCtStatus(null);
     try{
       const payload={...ctForm, startTime:toMinutes(ctForm.startTime), endTime:toMinutes(ctForm.endTime), dayOfWeek:Number(ctForm.dayOfWeek)};
       await tt.createClassTime(payload);
-      setCtStatus({type:"success", text:"Créneau créé."});
-      loadLists(); toast.add({title:"Créneau créé", type:"success"});
-    }catch(err){ setCtStatus({type:"error", text: err.response?.data?.detail || "Chevauchement ou erreur."});}
+      setCtStatus({type:"success", text:t("tt.slot.created")});
+      loadLists(); toast.add({title:t("tt.slot.created"), type:"success"});
+    }catch(err){ setCtStatus({type:"error", text: err.response?.data?.detail || t("tt.slot.error")});}
   }
   async function handleDeleteCT(id){
-    if(!confirm("Supprimer ce créneau ?")) return;
-    await tt.deleteClassTime(id); loadLists(); toast.add({title:"Supprimé", type:"success"});
+    if(!confirm(t("tt.slot.delete.confirm"))) return;
+    await tt.deleteClassTime(id); loadLists(); toast.add({title:t("tt.slot.deleted"), type:"success"});
   }
   async function handleCreateBT(e){
     e.preventDefault(); setBtStatus(null);
     try{
       await tt.createBreakTime({startTime:toMinutes(btForm.startTime), endTime:toMinutes(btForm.endTime), dayOfWeek:Number(btForm.dayOfWeek)});
-      setBtStatus({type:"success", text:"Pause créée."}); loadLists();
-    }catch(err){ setBtStatus({type:"error", text: err.response?.data?.detail||"Erreur"});}
+      setBtStatus({type:"success", text:t("tt.break.created")}); loadLists();
+    }catch(err){ setBtStatus({type:"error", text: err.response?.data?.detail||t("common.error")});}
   }
   async function handleCreateHoliday(e){
     e.preventDefault(); setHolStatus(null);
-    try{ await tt.createHoliday(holForm); setHolStatus({type:"success", text:"Congé créé."}); setHolForm({name:"", startAt:"", endAt:"", type:"all_class"}); loadLists(); }catch(err){ setHolStatus({type:"error", text: err.response?.data?.detail||"Erreur"});}
+    try{ await tt.createHoliday(holForm); setHolStatus({type:"success", text:t("tt.holiday.created")}); setHolForm({name:"", startAt:"", endAt:"", type:"all_class"}); loadLists(); }catch(err){ setHolStatus({type:"error", text: err.response?.data?.detail||t("common.error")});}
   }
   async function handleLinkHoliday(e){
     e.preventDefault(); setHcStatus(null);
-    try{ await tt.createHolidayClassroom(hcForm); setHcStatus({type:"success", text:"Associé."}); setHcForm({holidayId:"", classroomId:""});}catch(err){ setHcStatus({type:"error", text: err.response?.data?.detail||"Erreur"});}
+    try{ await tt.createHolidayClassroom(hcForm); setHcStatus({type:"success", text:t("tt.holiday.linked")}); setHcForm({holidayId:"", classroomId:""});}catch(err){ setHcStatus({type:"error", text: err.response?.data?.detail||t("common.error")});}
   }
   async function loadTimetable(){
     setLoadingTT(true); setTtError(null);
     try{
       let data;
       if(viewMode==="classroom"){
-        if(!viewClassroom) throw new Error("Choisissez une classe");
+        if(!viewClassroom) throw new Error(t("tt.grid.error.class"));
         const params={weeks:4}; if(viewSubject) params.subjectId=viewSubject; if(viewTeacher) params.teacherId=viewTeacher;
         const res=await tt.fetchClassroomTimetable(viewClassroom, params);
         data=res.data;
       } else {
-        if(!viewTeacher) throw new Error("Saisissez l'ID enseignant");
+        if(!viewTeacher) throw new Error(t("tt.grid.error.teacher"));
         const res=await tt.fetchTeacherTimetable(viewTeacher, {weeks:4, subjectId: viewSubject||undefined});
         // teacher simulate returns classrooms; flatten first for display or show per classroom selector
         data=res.data;
       }
       setTimetable(data); setWeekIndex(0);
-    }catch(err){ setTtError(err.response?.data?.detail || err.message || "Erreur chargement emploi du temps");}
+    }catch(err){ setTtError(err.response?.data?.detail || err.message || t("tt.grid.error.load"));}
     finally{ setLoadingTT(false);}
   }
 
@@ -130,76 +155,81 @@ export default function TimetablePage(){
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold flex items-center gap-2"><CalendarDays className="size-6"/> Emploi du temps</h2>
-        <p className="text-sm text-muted-foreground">Gestion des créneaux (ClassTime), pauses (BreakTime), congés (Holiday) et occurrences — porté du kernel TimeTables de wyscolars. Overlap bloqué côté API (409).</p>
+        <h2 className="text-2xl font-semibold flex items-center gap-2"><CalendarDays className="size-6"/> {t("tt.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("tt.subtitle")}</p>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardHeader><CardTitle className="text-base">Filtre d'affichage</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t("tt.filter.title")}</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap gap-3 items-end">
           <div className="space-y-1.5">
-            <Label>Classe (filtre liste)</Label>
+            <Label>{t("tt.filter.class")}</Label>
             <Select value={filterClassroom} onValueChange={setFilterClassroom}>
-              <SelectTrigger className="w-56"><SelectValue placeholder="Toutes les classes" /></SelectTrigger>
+              <SelectTrigger className="w-56"><SelectValue placeholder={t("tt.filter.allClasses")} /></SelectTrigger>
               <SelectContent>{classes.map(c=> <SelectItem key={c.id} value={c.id}>{c.name} ({c.level})</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={loadLists}>Rafraîchir</Button>
-          {filterClassroom && <Button variant="ghost" onClick={()=>setFilterClassroom("")}>Effacer filtre</Button>}
+          <Button variant="outline" onClick={loadLists}>{t("tt.filter.refresh")}</Button>
+          {filterClassroom && <Button variant="ghost" onClick={()=>setFilterClassroom("")}>{t("tt.filter.clear")}</Button>}
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* ClassTime CRUD */}
         <Card>
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="size-4"/> Créneau de cours (ClassTime)</CardTitle><CardDescription>Matière + enseignant + jour/heure par classe. 1=Lundi ... 6=Samedi</CardDescription></CardHeader>
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="size-4"/> {t("tt.slot.title")}</CardTitle><CardDescription>{t("tt.slot.subtitle")}</CardDescription></CardHeader>
           <CardContent className="space-y-4">
             {canManage && (
               <form onSubmit={handleCreateCT} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Classe</Label>
+                  <Label>{t("tt.slot.field.class")}</Label>
                   <Select value={ctForm.classroomId} onValueChange={v=>setCtForm(f=>({...f, classroomId:v}))}>
-                    <SelectTrigger><SelectValue placeholder="Classe" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("tt.slot.field.class")} /></SelectTrigger>
                     <SelectContent>{classes.map(c=> <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Matière</Label>
+                  <Label>{t("tt.slot.field.subject")}</Label>
                   <Select value={ctForm.subjectId} onValueChange={v=>setCtForm(f=>({...f, subjectId:v}))}>
-                    <SelectTrigger><SelectValue placeholder="Matière" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={t("tt.slot.field.subject")} /></SelectTrigger>
                     <SelectContent>{subjects.map(s=> <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Enseignant ID (teacherId)</Label>
-                  <Input value={ctForm.teacherId} onChange={e=>setCtForm(f=>({...f, teacherId:e.target.value}))} placeholder="UUID enseignant ou matricule" required/>
+                  <Label>{t("tt.slot.field.teacher")}</Label>
+                  <Select value={ctForm.teacherId} onValueChange={v=>setCtForm(f=>({...f, teacherId:v}))} required>
+                    <SelectTrigger><SelectValue placeholder={t("tt.slot.field.teacher.placeholder")} /></SelectTrigger>
+                    <SelectContent>
+                      {teachers.length===0 ? <div className="px-2 py-1.5 text-sm text-muted-foreground">{t("tt.slot.field.teacher.empty")}</div> : teachers.map(u=> <SelectItem key={u.id} value={u.id}>{u.fullName || `${u.firstName||""} ${u.lastName||""}`.trim() || u.email} ({u.email})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Heure début</Label>
+                  <Label>{t("tt.slot.field.start")}</Label>
                   <Input type="time" value={ctForm.startTime} onChange={e=>setCtForm(f=>({...f, startTime:e.target.value}))} required/>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Heure fin</Label>
+                  <Label>{t("tt.slot.field.end")}</Label>
                   <Input type="time" value={ctForm.endTime} onChange={e=>setCtForm(f=>({...f, endTime:e.target.value}))} required/>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Jour</Label>
+                  <Label>{t("tt.slot.field.day")}</Label>
                   <Select value={ctForm.dayOfWeek} onValueChange={v=>setCtForm(f=>({...f, dayOfWeek:v}))}>
                     <SelectTrigger><SelectValue/></SelectTrigger>
                     <SelectContent>{DAY_OPTIONS.map(o=> <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="sm:col-span-2"><Button type="submit" disabled={!ctForm.classroomId || !ctForm.subjectId}>Créer créneau</Button></div>
+                <div className="sm:col-span-2"><Button type="submit" disabled={!ctForm.classroomId || !ctForm.subjectId || !ctForm.teacherId}>{t("tt.slot.create")}</Button></div>
                 {ctStatus && <Alert variant={ctStatus.type==="success"?"success":"error"} className="sm:col-span-2">{ctStatus.text}</Alert>}
               </form>
             )}
             <div className="max-h-64 overflow-auto">
-              {ctList.length===0 ? <EmptyState icon={Clock} message="Aucun créneau."/> : (
+              {ctList.length===0 ? <EmptyState icon={Clock} message={t("tt.slot.empty")}/> : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Jour</TableHead><TableHead>Heure</TableHead><TableHead>Classe</TableHead><TableHead>Matière</TableHead><TableHead>Enseignant</TableHead><TableHead/></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>{t("tt.slot.table.day")}</TableHead><TableHead>{t("tt.slot.table.time")}</TableHead><TableHead>{t("tt.slot.table.class")}</TableHead><TableHead>{t("tt.slot.table.subject")}</TableHead><TableHead>{t("tt.slot.table.teacher")}</TableHead><TableHead/></TableRow></TableHeader>
                   <TableBody>{ctList.map(ct=> (
-                    <TableRow key={ct.id}><TableCell>{DAYS[ct.dayOfWeek]}</TableCell><TableCell className="font-mono text-xs">{ct.startTimeLabel}-{ct.endTimeLabel}</TableCell><TableCell className="text-xs">{classes.find(c=>c.id===ct.classroomId)?.name || ct.classroomId.slice(0,6)}</TableCell><TableCell className="text-xs">{subjects.find(s=>s.id===ct.subjectId)?.name || ct.subjectId.slice(0,6)}</TableCell><TableCell className="font-mono text-xs">{ct.teacherId.slice(0,8)}</TableCell><TableCell>{canManage && <Button variant="ghost" size="sm" onClick={()=>handleDeleteCT(ct.id)}>Suppr.</Button>}</TableCell></TableRow>
+                    <TableRow key={ct.id}><TableCell>{DAYS[ct.dayOfWeek]}</TableCell><TableCell className="font-mono text-xs">{ct.startTimeLabel}-{ct.endTimeLabel}</TableCell><TableCell className="text-xs">{classes.find(c=>c.id===ct.classroomId)?.name || ct.classroomId.slice(0,6)}</TableCell><TableCell className="text-xs">{subjects.find(s=>s.id===ct.subjectId)?.name || ct.subjectId.slice(0,6)}</TableCell><TableCell className="font-mono text-xs">{ct.teacherId.slice(0,8)}</TableCell><TableCell>{canManage && <Button variant="ghost" size="sm" onClick={()=>handleDeleteCT(ct.id)}>{t("tt.slot.delete")}</Button>}</TableCell></TableRow>
                   ))}</TableBody>
                 </Table>
               )}
@@ -209,48 +239,48 @@ export default function TimetablePage(){
 
         <div className="space-y-6">
           <Card>
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Coffee className="size-4"/> Pauses (BreakTime)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Coffee className="size-4"/> {t("tt.break.title")}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {canManage && (
                 <form onSubmit={handleCreateBT} className="flex flex-wrap gap-2 items-end">
-                  <div className="space-y-1.5"><Label>Début</Label><Input type="time" value={btForm.startTime} onChange={e=>setBtForm(f=>({...f, startTime:e.target.value}))}/></div>
-                  <div className="space-y-1.5"><Label>Fin</Label><Input type="time" value={btForm.endTime} onChange={e=>setBtForm(f=>({...f, endTime:e.target.value}))}/></div>
-                  <div className="space-y-1.5"><Label>Jour</Label><Select value={btForm.dayOfWeek} onValueChange={v=>setBtForm(f=>({...f, dayOfWeek:v}))}><SelectTrigger className="w-28"><SelectValue/></SelectTrigger><SelectContent>{DAY_OPTIONS.map(o=> <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
-                  <Button type="submit" size="sm">Ajouter</Button>
+                  <div className="space-y-1.5"><Label>{t("tt.break.start")}</Label><Input type="time" value={btForm.startTime} onChange={e=>setBtForm(f=>({...f, startTime:e.target.value}))}/></div>
+                  <div className="space-y-1.5"><Label>{t("tt.break.end")}</Label><Input type="time" value={btForm.endTime} onChange={e=>setBtForm(f=>({...f, endTime:e.target.value}))}/></div>
+                  <div className="space-y-1.5"><Label>{t("tt.break.day")}</Label><Select value={btForm.dayOfWeek} onValueChange={v=>setBtForm(f=>({...f, dayOfWeek:v}))}><SelectTrigger className="w-28"><SelectValue/></SelectTrigger><SelectContent>{DAY_OPTIONS.map(o=> <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
+                  <Button type="submit" size="sm">{t("tt.break.add")}</Button>
                 </form>
               )}
               {btStatus && <Alert variant={btStatus.type==="success"?"success":"error"}>{btStatus.text}</Alert>}
-              {btList.length===0 ? <p className="text-sm text-muted-foreground">Aucune pause.</p> : (
-                <div className="flex flex-wrap gap-1">{btList.map(bt=> <Badge key={bt.id} variant="secondary" className="font-mono text-xs">{DAYS[bt.dayOfWeek]} {bt.startTimeLabel}-{bt.endTimeLabel} <button onClick={()=>{ if(confirm("Supprimer ?")) tt.deleteBreakTime(bt.id).then(loadLists);}} className="ml-1 text-destructive">×</button></Badge>)}</div>
+              {btList.length===0 ? <p className="text-sm text-muted-foreground">{t("tt.break.empty")}</p> : (
+                <div className="flex flex-wrap gap-1">{btList.map(bt=> <Badge key={bt.id} variant="secondary" className="font-mono text-xs">{DAYS[bt.dayOfWeek]} {bt.startTimeLabel}-{bt.endTimeLabel} <button onClick={()=>{ if(confirm(t("tt.break.delete.confirm"))) tt.deleteBreakTime(bt.id).then(loadLists);}} className="ml-1 text-destructive">×</button></Badge>)}</div>
               )}
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Palmtree className="size-4"/> Congés (Holiday)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Palmtree className="size-4"/> {t("tt.holiday.title")}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               {canManage && (
                 <>
                   <form onSubmit={handleCreateHoliday} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <div className="space-y-1.5 sm:col-span-2"><Label>Nom</Label><Input value={holForm.name} onChange={e=>setHolForm(f=>({...f, name:e.target.value}))} required placeholder="ex. Vacances de Noël"/></div>
-                    <div className="space-y-1.5"><Label>Début</Label><Input type="date" value={holForm.startAt} onChange={e=>setHolForm(f=>({...f, startAt:e.target.value}))} required/></div>
-                    <div className="space-y-1.5"><Label>Fin</Label><Input type="date" value={holForm.endAt} onChange={e=>setHolForm(f=>({...f, endAt:e.target.value}))} required/></div>
-                    <div className="space-y-1.5"><Label>Type</Label><Select value={holForm.type} onValueChange={v=>setHolForm(f=>({...f, type:v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all_class">Toutes classes</SelectItem><SelectItem value="specific_class">Classe spécifique</SelectItem></SelectContent></Select></div>
-                    <div className="sm:col-span-2"><Button type="submit" size="sm">Créer congé</Button></div>
+                    <div className="space-y-1.5 sm:col-span-2"><Label>{t("tt.holiday.field.name")}</Label><Input value={holForm.name} onChange={e=>setHolForm(f=>({...f, name:e.target.value}))} required placeholder={t("tt.holiday.field.name.placeholder")}/></div>
+                    <div className="space-y-1.5"><Label>{t("tt.holiday.field.start")}</Label><Input type="date" value={holForm.startAt} onChange={e=>setHolForm(f=>({...f, startAt:e.target.value}))} required/></div>
+                    <div className="space-y-1.5"><Label>{t("tt.holiday.field.end")}</Label><Input type="date" value={holForm.endAt} onChange={e=>setHolForm(f=>({...f, endAt:e.target.value}))} required/></div>
+                    <div className="space-y-1.5"><Label>{t("tt.holiday.field.type")}</Label><Select value={holForm.type} onValueChange={v=>setHolForm(f=>({...f, type:v}))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all_class">{t("tt.holiday.type.all")}</SelectItem><SelectItem value="specific_class">{t("tt.holiday.type.specific")}</SelectItem></SelectContent></Select></div>
+                    <div className="sm:col-span-2"><Button type="submit" size="sm">{t("tt.holiday.create")}</Button></div>
                   </form>
                   {holStatus && <Alert variant={holStatus.type==="success"?"success":"error"}>{holStatus.text}</Alert>}
                   <form onSubmit={handleLinkHoliday} className="flex gap-2 items-end border-t pt-3">
-                    <div className="flex-1 space-y-1.5"><Label>Lier congé → classe</Label>
-                      <Select value={hcForm.holidayId} onValueChange={v=>setHcForm(f=>({...f, holidayId:v}))}><SelectTrigger><SelectValue placeholder="Congé" /></SelectTrigger><SelectContent>{holList.map(h=> <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>)}</SelectContent></Select>
+                    <div className="flex-1 space-y-1.5"><Label>{t("tt.holiday.link.title")}</Label>
+                      <Select value={hcForm.holidayId} onValueChange={v=>setHcForm(f=>({...f, holidayId:v}))}><SelectTrigger><SelectValue placeholder={t("tt.holiday.link.holiday")} /></SelectTrigger><SelectContent>{holList.map(h=> <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>)}</SelectContent></Select>
                     </div>
-                    <div className="flex-1 space-y-1.5"><Label>Classe</Label><Select value={hcForm.classroomId} onValueChange={v=>setHcForm(f=>({...f, classroomId:v}))}><SelectTrigger><SelectValue placeholder="Classe" /></SelectTrigger><SelectContent>{classes.map(c=> <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-                    <Button type="submit" size="sm">Lier</Button>
+                    <div className="flex-1 space-y-1.5"><Label>{t("tt.holiday.link.class")}</Label><Select value={hcForm.classroomId} onValueChange={v=>setHcForm(f=>({...f, classroomId:v}))}><SelectTrigger><SelectValue placeholder={t("tt.holiday.link.class")} /></SelectTrigger><SelectContent>{classes.map(c=> <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+                    <Button type="submit" size="sm">{t("tt.holiday.link.submit")}</Button>
                   </form>
                   {hcStatus && <Alert variant={hcStatus.type==="success"?"success":"error"}>{hcStatus.text}</Alert>}
                 </>
               )}
-              {holList.length===0 ? <p className="text-sm text-muted-foreground">Aucun congé.</p> : (
-                <div className="space-y-1">{holList.map(h=> <div key={h.id} className="flex justify-between text-xs border rounded px-2 py-1"><span>{h.name} {h.startAt}→{h.endAt} <Badge variant="outline" className="ml-1">{h.type}</Badge></span><button onClick={()=> tt.deleteHoliday(h.id).then(loadLists)} className="text-destructive">Suppr.</button></div>)}</div>
+              {holList.length===0 ? <p className="text-sm text-muted-foreground">{t("tt.holiday.empty")}</p> : (
+                <div className="space-y-1">{holList.map(h=> <div key={h.id} className="flex justify-between text-xs border rounded px-2 py-1"><span>{h.name} {h.startAt}→{h.endAt} <Badge variant="outline" className="ml-1">{h.type}</Badge></span><button onClick={()=> tt.deleteHoliday(h.id).then(loadLists)} className="text-destructive">{t("tt.holiday.delete")}</button></div>)}</div>
               )}
             </CardContent>
           </Card>
@@ -260,44 +290,59 @@ export default function TimetablePage(){
       {/* Weekly grid */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Grille hebdomadaire</CardTitle>
-          <CardDescription>Simulation sur 4 semaines à partir d'aujourd'hui. Cliquez sur un créneau pour déplacer/annuler/supprimer une occurrence ponctuelle (wyscolars: moved/cancelled/deleted + restore).</CardDescription>
+          <CardTitle className="text-base">{t("tt.grid.title")}</CardTitle>
+          <CardDescription>{t("tt.grid.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1.5">
-              <Label>Vue</Label>
-              <Select value={viewMode} onValueChange={setViewMode}><SelectTrigger className="w-40"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="classroom">Par classe</SelectItem><SelectItem value="teacher">Par enseignant</SelectItem></SelectContent></Select>
+              <Label>{t("tt.grid.view")}</Label>
+              <Select value={viewMode} onValueChange={setViewMode}><SelectTrigger className="w-40"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="classroom">{t("tt.grid.view.classroom")}</SelectItem><SelectItem value="teacher">{t("tt.grid.view.teacher")}</SelectItem></SelectContent></Select>
             </div>
             {viewMode==="classroom" ? (
               <>
-                <div className="space-y-1.5"><Label>Classe</Label><Select value={viewClassroom} onValueChange={setViewClassroom}><SelectTrigger className="w-56"><SelectValue placeholder="Choisir classe" /></SelectTrigger><SelectContent>{classes.map(c=> <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-1.5"><Label>Enseignant (filtre opt.)</Label><Input value={viewTeacher} onChange={e=>setViewTeacher(e.target.value)} placeholder="teacherId" className="w-40"/></div>
+                <div className="space-y-1.5"><Label>{t("tt.grid.field.class")}</Label><Select value={viewClassroom} onValueChange={setViewClassroom}><SelectTrigger className="w-56"><SelectValue placeholder={t("tt.grid.field.class.placeholder")} /></SelectTrigger><SelectContent>{classes.map(c=> <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-1.5"><Label>{t("tt.grid.field.teacherFilter")}</Label>
+                  <Select value={viewTeacher || "__all"} onValueChange={v=>setViewTeacher(v==="__all"?"":v)}>
+                    <SelectTrigger className="w-48"><SelectValue placeholder={t("tt.slot.field.teacher.placeholder")} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all">{t("tt.grid.field.subject.all")}</SelectItem>
+                      {teachers.map(u=> <SelectItem key={u.id} value={u.id}>{u.fullName || `${u.firstName||""} ${u.lastName||""}`.trim() || u.email}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </>
             ) : (
-              <div className="space-y-1.5"><Label>Enseignant ID</Label><Input value={viewTeacher} onChange={e=>setViewTeacher(e.target.value)} placeholder="teacherId" className="w-56"/></div>
+              <div className="space-y-1.5"><Label>{t("tt.grid.field.teacherId")}</Label>
+                <Select value={viewTeacher} onValueChange={setViewTeacher}>
+                  <SelectTrigger className="w-56"><SelectValue placeholder={t("tt.slot.field.teacher.placeholder")} /></SelectTrigger>
+                  <SelectContent>
+                    {teachers.map(u=> <SelectItem key={u.id} value={u.id}>{u.fullName || `${u.firstName||""} ${u.lastName||""}`.trim() || u.email}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
-            <div className="space-y-1.5"><Label>Matière (filtre opt.)</Label><Select value={viewSubject} onValueChange={setViewSubject}><SelectTrigger className="w-40"><SelectValue placeholder="Toutes" /></SelectTrigger><SelectContent><SelectItem value="">Toutes</SelectItem>{subjects.map(s=> <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div>
-            <Button onClick={loadTimetable} disabled={loadingTT}>{loadingTT?"Chargement...":"Afficher"}</Button>
+            <div className="space-y-1.5"><Label>{t("tt.grid.field.subject")}</Label><Select value={viewSubject || "__all"} onValueChange={(v)=>setViewSubject(v === "__all" ? "" : v)}><SelectTrigger className="w-40"><SelectValue placeholder={t("tt.grid.field.subject.all")} /></SelectTrigger><SelectContent><SelectItem value="__all">{t("tt.grid.field.subject.all")}</SelectItem>{subjects.map(s=> <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div>
+            <Button onClick={loadTimetable} disabled={loadingTT}>{loadingTT?t("tt.grid.loading"):t("tt.grid.show")}</Button>
           </div>
           {ttError && <Alert variant="error">{ttError}</Alert>}
           {viewMode==="teacher" && timetable?.classrooms && timetable.classrooms.length>1 && (
-            <p className="text-xs text-muted-foreground">Enseignant présent dans {timetable.classrooms.length} classes — affichage groupé par classe (premier bloc ci-dessous). Utilisez le simulateur classe pour la vue fusionnée.</p>
+            <p className="text-xs text-muted-foreground">{t("tt.grid.teacherNote", { count: timetable.classrooms.length })}</p>
           )}
           {week && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" disabled={weekIndex<=0} onClick={()=>setWeekIndex(i=>i-1)}>← Semaine précédente</Button>
-              <span className="text-sm font-medium">Semaine du {week.weekStart} ({week.days[0].date} → {week.days[6]?.date || week.days[week.days.length-1].date})</span>
-              <Button variant="outline" size="sm" disabled={weekIndex>=activeWeeks.length-1} onClick={()=>setWeekIndex(i=>i+1)}>Semaine suivante →</Button>
+              <Button variant="outline" size="sm" disabled={weekIndex<=0} onClick={()=>setWeekIndex(i=>i-1)}>{t("tt.grid.prev")}</Button>
+              <span className="text-sm font-medium">{t("tt.grid.weekOf", { week: week.weekStart, from: week.days[0].date, to: week.days[6]?.date || week.days[week.days.length-1].date })}</span>
+              <Button variant="outline" size="sm" disabled={weekIndex>=activeWeeks.length-1} onClick={()=>setWeekIndex(i=>i+1)}>{t("tt.grid.next")}</Button>
               <Badge variant="secondary">{weekIndex+1}/{activeWeeks.length}</Badge>
             </div>
           )}
-          {!week ? <EmptyState icon={CalendarDays} message="Choisissez une classe/enseignant et cliquez Afficher."/> : (
+          {!week ? <EmptyState icon={CalendarDays} message={t("tt.grid.empty")}/> : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader><TableRow><TableHead className="w-24">Heure</TableHead>{week.days.slice(0,6).map(d=> <TableHead key={d.date} className="min-w-28 text-center">{DAYS[d.dayOfWeek]}<br/><span className="font-normal text-xs">{d.date}</span></TableHead>)}</TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead className="w-24">{t("tt.grid.time")}</TableHead>{week.days.slice(0,6).map(d=> <TableHead key={d.date} className="min-w-28 text-center">{DAYS[d.dayOfWeek]}<br/><span className="font-normal text-xs">{d.date}</span></TableHead>)}</TableRow></TableHeader>
                 <TableBody>
-                  {sortedSlots.length===0 ? <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground">Aucun créneau cette semaine (vérifiez BreakTime/Holiday).</TableCell></TableRow> :
+                  {sortedSlots.length===0 ? <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground">{t("tt.grid.noSlots")}</TableCell></TableRow> :
                   sortedSlots.map(slotKey=> {
                     const [sStr,eStr]=slotKey.split("-"); const s=Number(sStr), e=Number(eStr);
                     return (
@@ -310,27 +355,33 @@ export default function TimetablePage(){
                             <TableCell key={d.date} className="p-1">
                               <div className="space-y-1">
                                 {slots.map((sl,idx)=> sl.type==="break" ? (
-                                  <div key={idx} className="rounded bg-amber-100 text-amber-900 text-xs px-2 py-1 text-center flex items-center justify-center gap-1"><Coffee className="size-3"/> Pause</div>
+                                  <div key={idx} className="flex items-center justify-center gap-1"><Badge variant="warning" className="text-xs"><Coffee className="size-3"/> {t("tt.break.label")} {fmt(sl.startTime)}-{fmt(sl.endTime)}</Badge></div>
                                 ) : (
-                                  <div key={idx} className={`rounded text-xs px-2 py-1 ${sl.status==="holiday"?"bg-yellow-100 text-yellow-900": sl.status==="cancelled"?"bg-red-100 text-red-800 line-through": sl.status==="moved"?"bg-blue-100 text-blue-900": sl.status==="deleted"?"bg-gray-200": "bg-primary/10"}`}>
-                                    <div className="font-medium truncate">{subjects.find(s=>s.id===sl.subjectId)?.name || sl.subject.slice(0,8)}</div>
-                                    <div className="truncate text-[11px]">Prof {sl.teacherId.slice(0,6)}</div>
+                                  <div key={idx} className="rounded-lg border border-border bg-card px-2 py-1 text-xs">
+                                    <div className="font-medium truncate">{subjects.find(su=>su.id===sl.subjectId)?.name || sl.subject.slice(0,8)}</div>
+                                    <div className="truncate text-[11px] text-muted-foreground">Prof {sl.teacherId.slice(0,6)} · {fmt(sl.startTime)}-{fmt(sl.endTime)}</div>
                                     <div className="flex gap-1 mt-1 flex-wrap">
-                                      {sl.status!=="scheduled" && <Badge variant="outline" className="text-[10px] px-1 py-0">{sl.status}{sl.holidayName? `: ${sl.holidayName}`:""}{sl.reason? `: ${sl.reason}`:""}</Badge>}
+                                      {sl.status==="holiday" && <Badge variant="warning" className="text-[10px] px-1 py-0">{t("tt.grid.status.holiday")}{sl.holidayName? `: ${sl.holidayName}`:""}</Badge>}
+                                      {sl.status==="cancelled" && <Badge variant="destructive" className="text-[10px] px-1 py-0 line-through">{t("tt.grid.status.cancelled")}{sl.reason? `: ${sl.reason}`:""}</Badge>}
+                                      {sl.status==="moved" && <Badge variant="default" className="text-[10px] px-1 py-0">{t("tt.grid.status.moved")}</Badge>}
+                                      {sl.status==="deleted" && <Badge variant="secondary" className="text-[10px] px-1 py-0">{t("tt.grid.status.deleted")}</Badge>}
                                     </div>
                                     <div className="flex gap-1 mt-1">
                                       <Button size="sm" variant="ghost" className="h-6 px-1 text-[10px]" onClick={async()=>{
-                                        const nt=prompt("Nouvelle heure début HH:MM", fmt(s)); if(!nt) return; const ne=prompt("Heure fin HH:MM", fmt(e)); if(!ne) return;
-                                        const st=toMinutes(nt), en=toMinutes(ne); const dow=Number(prompt("Jour 1-6", String(d.dayOfWeek))||d.dayOfWeek);
-                                        await tt.moveOccurrence(sl.classTimeId, d.date, {startTime:st, endTime:en, dayOfWeek:dow}); loadTimetable(); toast.add({title:"Déplacé", type:"success"});
-                                      }}><Move className="size-3"/> Déplacer</Button>
+                                        const nt=prompt(t("tt.grid.move.start.prompt"), fmt(s)); if(!nt) return; const ne=prompt(t("tt.grid.move.end.prompt"), fmt(e)); if(!ne) return;
+                                        const st=toMinutes(nt), en=toMinutes(ne); const dow=Number(prompt(t("tt.grid.move.day.prompt"), String(d.dayOfWeek))||d.dayOfWeek);
+                                        if(!(st < en)){ toast.add({title:t("tt.grid.move.invalid"), type:"error"}); return; }
+                                        if(hasTimeOverlap(d.slots, st, en, `${sl.startTime}-${sl.endTime}-${sl.classTimeId}`)){ toast.add({title:t("tt.grid.move.overlap"), type:"error"}); return; }
+                                        try{ await tt.moveOccurrence(sl.classTimeId, d.date, {startTime:st, endTime:en, dayOfWeek:dow}); loadTimetable(); toast.add({title:t("tt.grid.moved"), type:"success"}); }
+                                        catch(err){ toast.add({title: err.response?.data?.detail || t("tt.grid.move.error"), type:"error"}); }
+                                      }}><Move className="size-3"/> {t("tt.grid.move")}</Button>
                                       <Button size="sm" variant="ghost" className="h-6 px-1 text-[10px]" onClick={async()=>{
-                                        const reason=prompt("Motif annulation ?")||undefined; await tt.cancelOccurrence(sl.classTimeId, d.date, {reason}); loadTimetable();
-                                      }}><Ban className="size-3"/> Annuler</Button>
+                                        const reason=prompt(t("tt.grid.cancel.prompt"))||undefined; await tt.cancelOccurrence(sl.classTimeId, d.date, {reason}); loadTimetable();
+                                      }}><Ban className="size-3"/> {t("tt.grid.cancel")}</Button>
                                       <Button size="sm" variant="ghost" className="h-6 px-1 text-[10px] text-destructive" onClick={async()=>{
-                                        if(!confirm("Supprimer cette occurrence ?")) return; await tt.deleteOccurrence(sl.classTimeId, d.date); loadTimetable();
-                                      }}>Suppr.</Button>
-                                      {sl.status!=="scheduled" && <Button size="sm" variant="ghost" className="h-6 px-1 text-[10px]" onClick={async()=>{ await tt.restoreOccurrence(sl.classTimeId, d.date); loadTimetable();}}>Restaurer</Button>}
+                                        if(!confirm(t("tt.grid.delete.confirm"))) return; await tt.deleteOccurrence(sl.classTimeId, d.date); loadTimetable();
+                                      }}>{t("tt.grid.delete")}</Button>
+                                      {sl.status!=="scheduled" && <Button size="sm" variant="ghost" className="h-6 px-1 text-[10px]" onClick={async()=>{ await tt.restoreOccurrence(sl.classTimeId, d.date); loadTimetable();}}>{t("tt.grid.restore")}</Button>}
                                     </div>
                                   </div>
                                 ))}

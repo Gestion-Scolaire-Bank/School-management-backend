@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, NotebookText } from "lucide-react";
 import apiClient from "../api/client";
+import { useI18n } from "@/lib/i18n";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -13,13 +14,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import FileDropzone from "@/components/FileDropzone";
 
-const RESOURCE_TYPE_LABELS = {
-  DOCUMENT: "Document",
-  VIDEO: "Video",
-  LESSON_PLAN: "Plan de lecon",
-  EVALUATION: "Evaluation",
-};
-const RESOURCE_TYPES = Object.keys(RESOURCE_TYPE_LABELS);
+const RESOURCE_TYPES = ["DOCUMENT", "VIDEO", "LESSON_PLAN", "EVALUATION"];
 
 const EMPTY_RESOURCE = {
   title: "",
@@ -44,6 +39,7 @@ function classLabel(c) {
 // non affectee a l'enseignant connecte (cf. point de coherence - references reelles au lieu
 // de texte libre, meme garde-fou que la saisie de notes dans reportcard-service).
 export default function ResourcesPage() {
+  const { t } = useI18n();
   const [resources, setResources] = useState([]);
   const [loadingResources, setLoadingResources] = useState(true);
 
@@ -119,7 +115,7 @@ export default function ResourcesPage() {
   async function handleUpload(e) {
     e.preventDefault();
     if (!file) {
-      setUploadStatus({ type: "error", text: "Choisissez un fichier a uploader." });
+      setUploadStatus({ type: "error", text: t("res.upload.noFile") });
       return;
     }
     setUploading(true);
@@ -130,7 +126,7 @@ export default function ResourcesPage() {
       Object.entries(resourceForm).forEach(([key, value]) => formData.append(key, value));
 
       await apiClient.post("/api/v1/pedagogic/resources", formData);
-      setUploadStatus({ type: "success", text: "Ressource uploadee." });
+      setUploadStatus({ type: "success", text: t("res.upload.success") });
       setResourceForm(EMPTY_RESOURCE);
       setFile(null);
       e.target.reset?.();
@@ -138,8 +134,8 @@ export default function ResourcesPage() {
     } catch (err) {
       const text =
         err.response?.status === 403
-          ? "Vous n'etes pas affecte a cette classe/matiere - demandez a l'administrateur de vous y affecter."
-          : "Echec de l'upload - verifiez les champs et le fichier.";
+          ? t("res.upload.forbidden")
+          : t("res.upload.error");
       setUploadStatus({ type: "error", text });
     } finally {
       setUploading(false);
@@ -156,14 +152,14 @@ export default function ResourcesPage() {
     setCourseStatus(null);
     try {
       await apiClient.post("/api/v1/pedagogic/courses", course);
-      setCourseStatus({ type: "success", text: "Cours cree." });
+      setCourseStatus({ type: "success", text: t("res.course.success") });
       setCourse(EMPTY_COURSE);
       await loadCourses();
     } catch (err) {
       const text =
         err.response?.status === 403
-          ? "Vous n'etes pas affecte a cette classe/matiere - demandez a l'administrateur de vous y affecter."
-          : "Impossible de creer le cours.";
+          ? t("res.course.forbidden")
+          : t("res.course.error");
       setCourseStatus({ type: "error", text });
     } finally {
       setCreatingCourse(false);
@@ -178,31 +174,31 @@ export default function ResourcesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Ressources pedagogiques</h2>
+        <h2 className="text-2xl font-semibold">{t("res.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Documents, videos, plans de cours et evaluations partages avec les eleves.
+          {t("res.subtitle")}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Uploader une ressource</CardTitle>
-          <CardDescription>Classe et matiere sont optionnelles pour une ressource generale.</CardDescription>
+          <CardTitle className="text-base">{t("res.upload.title")}</CardTitle>
+          <CardDescription>{t("res.upload.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleUpload} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               {/* validation "obligatoire" geree en JS (handleUpload) plutot qu'en HTML5 :
                   plus fiable pour un input file rempli programmatiquement (tests, extensions). */}
-              <FileDropzone id="file" label="Fichier" file={file} onChange={setFile} required />
+              <FileDropzone id="file" label={t("res.field.file")} file={file} onChange={setFile} required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="title">Titre</Label>
+              <Label htmlFor="title">{t("res.field.title")}</Label>
               <Input id="title" value={resourceForm.title} onChange={updateResourceField("title")} required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="resource_type">Type</Label>
+              <Label htmlFor="resource_type">{t("res.field.type")}</Label>
               <Select
                 value={resourceForm.resource_type}
                 onValueChange={(value) => setResourceForm((f) => ({ ...f, resource_type: value }))}
@@ -213,20 +209,20 @@ export default function ResourcesPage() {
                 <SelectContent>
                   {RESOURCE_TYPES.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {RESOURCE_TYPE_LABELS[type]}
+                      {t(`res.type.${type}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="resourceClassId">Classe (optionnel)</Label>
+              <Label htmlFor="resourceClassId">{t("res.field.classOptional")}</Label>
               <Select
                 value={resourceForm.class_id}
                 onValueChange={(value) => setResourceForm((f) => ({ ...f, class_id: value, subject_id: "" }))}
               >
                 <SelectTrigger id="resourceClassId" className="w-full">
-                  <SelectValue placeholder="Aucune classe" />
+                  <SelectValue placeholder={t("res.field.class.none")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -238,14 +234,14 @@ export default function ResourcesPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="resourceSubjectId">Matiere (optionnel)</Label>
+              <Label htmlFor="resourceSubjectId">{t("res.field.subjectOptional")}</Label>
               <Select
                 value={resourceForm.subject_id}
                 onValueChange={(value) => setResourceForm((f) => ({ ...f, subject_id: value }))}
                 disabled={!resourceForm.class_id}
               >
                 <SelectTrigger id="resourceSubjectId" className="w-full">
-                  <SelectValue placeholder={resourceForm.class_id ? "Aucune matiere" : "Choisissez d'abord une classe"} />
+                  <SelectValue placeholder={resourceForm.class_id ? t("res.field.subject.none") : t("res.field.chooseClassFirst")} />
                 </SelectTrigger>
                 <SelectContent>
                   {resourceSubjects.map((cs) => (
@@ -257,7 +253,7 @@ export default function ResourcesPage() {
               </Select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t("res.field.description")}</Label>
               <Input id="description" value={resourceForm.description} onChange={updateResourceField("description")} />
             </div>
             {uploadStatus && (
@@ -267,7 +263,7 @@ export default function ResourcesPage() {
             )}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={uploading}>
-                {uploading ? "Upload..." : "Uploader"}
+                {uploading ? t("res.upload.uploading") : t("res.upload.submit")}
               </Button>
             </div>
           </form>
@@ -276,23 +272,23 @@ export default function ResourcesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Creer un cours / plan de lecon</CardTitle>
-          <CardDescription>Contenu textuel directement enregistre (sans fichier).</CardDescription>
+          <CardTitle className="text-base">{t("res.course.title")}</CardTitle>
+          <CardDescription>{t("res.course.description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateCourse} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="courseTitle">Titre</Label>
+              <Label htmlFor="courseTitle">{t("res.field.title")}</Label>
               <Input id="courseTitle" value={course.title} onChange={updateCourseField("title")} required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="courseClassId">Classe</Label>
+              <Label htmlFor="courseClassId">{t("res.field.class")}</Label>
               <Select
                 value={course.class_id}
                 onValueChange={(value) => setCourse((c) => ({ ...c, class_id: value, subject_id: "" }))}
               >
                 <SelectTrigger id="courseClassId" className="w-full">
-                  <SelectValue placeholder="Choisir une classe" />
+                  <SelectValue placeholder={t("res.field.class.placeholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -304,19 +300,19 @@ export default function ResourcesPage() {
               </Select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="courseSubjectId">Matiere</Label>
+              <Label htmlFor="courseSubjectId">{t("res.field.subject")}</Label>
               <Select
                 value={course.subject_id}
                 onValueChange={(value) => setCourse((c) => ({ ...c, subject_id: value }))}
                 disabled={!course.class_id}
               >
                 <SelectTrigger id="courseSubjectId" className="w-full">
-                  <SelectValue placeholder={course.class_id ? "Choisir une matiere" : "Choisissez d'abord une classe"} />
+                  <SelectValue placeholder={course.class_id ? t("res.field.subject.placeholder") : t("res.field.chooseClassFirst")} />
                 </SelectTrigger>
                 <SelectContent>
                   {courseSubjects.length === 0 && (
                     <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      Aucune matiere pour cette classe - a definir dans "Classes &amp; matieres"
+                      {t("res.empty.noSubjects")}
                     </div>
                   )}
                   {courseSubjects.map((cs) => (
@@ -328,7 +324,7 @@ export default function ResourcesPage() {
               </Select>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="courseContent">Contenu</Label>
+              <Label htmlFor="courseContent">{t("res.field.content")}</Label>
               <Textarea
                 id="courseContent"
                 className="min-h-32"
@@ -344,7 +340,7 @@ export default function ResourcesPage() {
             )}
             <div className="sm:col-span-2">
               <Button type="submit" disabled={creatingCourse || !course.subject_id}>
-                {creatingCourse ? "Creation..." : "Creer le cours"}
+                {creatingCourse ? t("res.course.creating") : t("res.course.submit")}
               </Button>
             </div>
           </form>
@@ -354,22 +350,22 @@ export default function ResourcesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Ressources disponibles</CardTitle>
+          <CardTitle className="text-base">{t("res.list.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingResources ? (
-            <p className="text-sm text-muted-foreground">Chargement...</p>
+            <p className="text-sm text-muted-foreground">{t("res.loading")}</p>
           ) : resources.length === 0 ? (
-            <EmptyState icon={BookOpen} message="Aucune ressource disponible." />
+            <EmptyState icon={BookOpen} message={t("res.list.empty")} />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Titre</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Matiere</TableHead>
-                  <TableHead>Classe</TableHead>
-                  <TableHead>Fichier</TableHead>
+                  <TableHead>{t("res.table.title")}</TableHead>
+                  <TableHead>{t("res.table.type")}</TableHead>
+                  <TableHead>{t("res.table.subject")}</TableHead>
+                  <TableHead>{t("res.table.class")}</TableHead>
+                  <TableHead>{t("res.table.file")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -377,7 +373,7 @@ export default function ResourcesPage() {
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.title}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{RESOURCE_TYPE_LABELS[r.resource_type] ?? r.resource_type}</Badge>
+                      <Badge variant="secondary">{RESOURCE_TYPES.includes(r.resource_type) ? t(`res.type.${r.resource_type}`) : r.resource_type}</Badge>
                     </TableCell>
                     <TableCell>{r.subject_name || "-"}</TableCell>
                     <TableCell>{resourceClassLabel(r.class_id) || "-"}</TableCell>
@@ -401,21 +397,21 @@ export default function ResourcesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Cours &amp; plans de lecon crees</CardTitle>
+          <CardTitle className="text-base">{t("res.courses.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingCourses ? (
-            <p className="text-sm text-muted-foreground">Chargement...</p>
+            <p className="text-sm text-muted-foreground">{t("res.loading")}</p>
           ) : courses.length === 0 ? (
-            <EmptyState icon={NotebookText} message="Aucun cours cree pour le moment." />
+            <EmptyState icon={NotebookText} message={t("res.courses.empty")} />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Titre</TableHead>
-                  <TableHead>Matiere</TableHead>
-                  <TableHead>Classe</TableHead>
-                  <TableHead>Contenu</TableHead>
+                  <TableHead>{t("res.table.title")}</TableHead>
+                  <TableHead>{t("res.table.subject")}</TableHead>
+                  <TableHead>{t("res.table.class")}</TableHead>
+                  <TableHead>{t("res.table.content")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

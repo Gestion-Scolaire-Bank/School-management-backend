@@ -37,7 +37,18 @@ function mockReferenceData() {
 }
 
 async function selectOption(user, triggerId, optionName) {
-  await user.click(document.getElementById(triggerId));
+  const el = document.getElementById(triggerId);
+  if (el && el.tagName === "SELECT") {
+    await waitFor(() => {
+      const opts = Array.from(el.options);
+      if (!opts.some((o) => optionName.test(o.textContent || ""))) throw new Error("option not yet loaded");
+    });
+    const opt = Array.from(el.options).find((o) => optionName.test(o.textContent || ""));
+    if (!opt) throw new Error(`Option ${optionName} not found in #${triggerId}`);
+    await user.selectOptions(el, opt.value);
+    return;
+  }
+  await user.click(el);
   await user.click(await screen.findByRole("option", { name: optionName }));
 }
 

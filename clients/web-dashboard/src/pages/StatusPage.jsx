@@ -11,16 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
+import { useI18n } from "@/lib/i18n";
 
 const STATUS_TYPES = ["DISPONIBLE", "MALADE", "EN_DEPLACEMENT", "DISTANCIEL", "INDISPONIBLE"];
-
-const STATUS_LABELS = {
-  DISPONIBLE: "Disponible",
-  MALADE: "Malade",
-  EN_DEPLACEMENT: "En deplacement",
-  DISTANCIEL: "A distance",
-  INDISPONIBLE: "Indisponible",
-};
 
 const STATUS_BADGE_VARIANT = {
   DISPONIBLE: "success",
@@ -50,7 +43,16 @@ function buildLiveStatusUrl() {
 // n'a pas de sens ici). GET .../history et le flux temps reel /live : reserves a l'Admin cote
 // Gateway (rbac-rules) - les sections correspondantes ne sont donc affichees que pour ce role.
 export default function StatusPage() {
+  const { t } = useI18n();
   const isAdmin = getUser()?.role === "ADMINISTRATEUR";
+
+  const STATUS_LABELS = {
+    DISPONIBLE: t("st.type.DISPONIBLE"),
+    MALADE: t("st.type.MALADE"),
+    EN_DEPLACEMENT: t("st.type.EN_DEPLACEMENT"),
+    DISTANCIEL: t("st.type.DISTANCIEL"),
+    INDISPONIBLE: t("st.type.INDISPONIBLE"),
+  };
 
   const [statusType, setStatusType] = useState("DISPONIBLE");
   const [message, setMessage] = useState("");
@@ -99,10 +101,10 @@ export default function StatusPage() {
     setPublishStatus(null);
     try {
       await apiClient.post("/api/v1/status", { statusType, message: message || undefined });
-      setPublishStatus({ type: "success", text: "Statut publie." });
+      setPublishStatus({ type: "success", text: t("st.publish.success") });
       setMessage("");
     } catch {
-      setPublishStatus({ type: "error", text: "Impossible de publier le statut." });
+      setPublishStatus({ type: "error", text: t("st.publish.error") });
     } finally {
       setPublishing(false);
     }
@@ -118,7 +120,7 @@ export default function StatusPage() {
       const { data } = await apiClient.get(`/api/v1/status/history/${encodeURIComponent(userId)}`);
       setHistory(data || []);
     } catch {
-      setHistoryError("Impossible de charger l'historique de ce compte.");
+      setHistoryError(t("st.history.error"));
     } finally {
       setLoadingHistory(false);
     }
@@ -127,21 +129,21 @@ export default function StatusPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Statuts &amp; disponibilite</h2>
+        <h2 className="text-2xl font-semibold">{t("st.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Indiquez votre disponibilite au reste de l'etablissement.
+          {t("st.subtitle")}
         </p>
       </div>
 
       <Card className="max-w-lg">
         <CardHeader>
-          <CardTitle className="text-base">Mon statut</CardTitle>
-          <CardDescription>Visible par l'administration en temps reel.</CardDescription>
+          <CardTitle className="text-base">{t("st.mine.title")}</CardTitle>
+          <CardDescription>{t("st.mine.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handlePublish} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="statusType">Statut</Label>
+              <Label htmlFor="statusType">{t("st.field.status")}</Label>
               <Select value={statusType} onValueChange={setStatusType}>
                 <SelectTrigger id="statusType" className="w-full">
                   <SelectValue />
@@ -156,10 +158,10 @@ export default function StatusPage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="statusMessage">Message (optionnel)</Label>
+              <Label htmlFor="statusMessage">{t("st.field.message")}</Label>
               <Textarea
                 id="statusMessage"
-                placeholder="ex. De retour demain"
+                placeholder={t("st.field.message.placeholder")}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
@@ -168,7 +170,7 @@ export default function StatusPage() {
               <Alert variant={publishStatus.type === "success" ? "success" : "error"}>{publishStatus.text}</Alert>
             )}
             <Button type="submit" disabled={publishing}>
-              {publishing ? "Publication..." : "Publier mon statut"}
+              {publishing ? t("st.publishing") : t("st.publish.submit")}
             </Button>
           </form>
         </CardContent>
@@ -178,15 +180,15 @@ export default function StatusPage() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Historique d'un compte</CardTitle>
-              <CardDescription>Derniers statuts publies par une personne.</CardDescription>
+              <CardTitle className="text-base">{t("st.history.title")}</CardTitle>
+              <CardDescription>{t("st.history.subtitle")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="historyUser">Compte</Label>
+                <Label htmlFor="historyUser">{t("st.history.account")}</Label>
                 <Select value={historyUserId} onValueChange={loadHistory}>
                   <SelectTrigger id="historyUser" className="w-full">
-                    <SelectValue placeholder="Choisir un compte" />
+                    <SelectValue placeholder={t("st.history.account.placeholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {users.map((u) => (
@@ -198,18 +200,18 @@ export default function StatusPage() {
                 </Select>
               </div>
 
-              {loadingHistory && <p className="text-sm text-muted-foreground">Chargement...</p>}
+              {loadingHistory && <p className="text-sm text-muted-foreground">{t("st.loading")}</p>}
               {historyError && <Alert variant="error">{historyError}</Alert>}
               {history && history.length === 0 && (
-                <EmptyState icon={Radio} message="Aucun statut publie par ce compte." />
+                <EmptyState icon={Radio} message={t("st.history.empty")} />
               )}
               {history && history.length > 0 && (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Date</TableHead>
+                      <TableHead>{t("st.table.status")}</TableHead>
+                      <TableHead>{t("st.table.message")}</TableHead>
+                      <TableHead>{t("st.table.date")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -233,17 +235,17 @@ export default function StatusPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                Flux en direct
+                {t("st.live.title")}
                 <span
                   className={`size-2 rounded-full ${liveConnected ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
-                  title={liveConnected ? "Connecte" : "Deconnecte"}
+                  title={liveConnected ? t("st.live.connected") : t("st.live.disconnected")}
                 />
               </CardTitle>
-              <CardDescription>Statuts publies par tout le personnel, en temps reel.</CardDescription>
+              <CardDescription>{t("st.live.subtitle")}</CardDescription>
             </CardHeader>
             <CardContent>
               {liveEntries.length === 0 ? (
-                <EmptyState icon={Radio} message="Aucun statut recu depuis l'ouverture de cette page." />
+                <EmptyState icon={Radio} message={t("st.live.empty")} />
               ) : (
                 <ul className="space-y-2 text-sm">
                   {liveEntries.map((entry, i) => (

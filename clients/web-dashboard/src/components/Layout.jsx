@@ -118,7 +118,7 @@ export default function Layout() {
               {initial}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-white">{user?.email ?? "User"}</p>
+              <p className="truncate text-sm font-medium text-white">{user?.email ?? t("common.user")}</p>
               <p className="text-xs text-sidebar-foreground/70">{t(ROLE_LABELS[user?.role] ?? user?.role)}</p>
             </div>
           </div>
@@ -134,7 +134,7 @@ export default function Layout() {
             <span className="text-foreground">{currentItem?.label ?? ""}</span>
           </p>
           <div className="flex items-center gap-1">
-            <button onClick={handleToggleLang} aria-label="Toggle language" className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            <button onClick={handleToggleLang} aria-label={t("lang.toggle")} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
               <Languages className="size-4" /> {lang === "en" ? "FR" : "EN"}
             </button>
             <button onClick={handleToggleTheme} aria-label={theme === "dark" ? t("theme.dark") : t("theme.light")} className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">

@@ -8,9 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { useI18n } from "@/lib/i18n";
 
 // UC2 - Se connecter (document de conception, section 3.1)
 export default function LoginPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,9 +32,9 @@ export default function LoginPage() {
       navigate(redirectTo, { replace: true });
     } catch (err) {
       if (err.response?.status === 429) {
-        setError(err.response.data?.message || "Trop de tentatives, reessayez plus tard.");
+        setError(err.response.data?.message || t("auth.login.error.rateLimit"));
       } else {
-        setError("Email ou mot de passe incorrect.");
+        setError(t("auth.login.error.invalid"));
       }
     } finally {
       setLoading(false);
@@ -42,17 +44,17 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       <div className="space-y-1.5">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">Connexion</h2>
-        <p className="text-sm text-muted-foreground">Accedez a votre espace SchoolManage.</p>
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">{t("auth.login.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("auth.login.subtitle")}</p>
       </div>
 
       {location.state?.passwordResetSuccess && (
-        <Alert variant="success">Mot de passe change avec succes. Connectez-vous avec votre nouveau mot de passe.</Alert>
+        <Alert variant="success">{t("auth.login.resetSuccess")}</Alert>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("auth.field.email")}</Label>
           <Input
             id="email"
             type="email"
@@ -66,9 +68,9 @@ export default function LoginPage() {
         </div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Mot de passe</Label>
+            <Label htmlFor="password">{t("auth.field.password")}</Label>
             <Link to="/forgot-password" className="text-xs text-primary underline-offset-4 hover:underline">
-              Mot de passe oublie ?
+              {t("auth.login.forgotLink")}
             </Link>
           </div>
           <div className="relative">
@@ -85,7 +87,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               tabIndex={-1}
-              aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              aria-label={showPassword ? t("auth.login.hidePassword") : t("auth.login.showPassword")}
               className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted-foreground hover:text-foreground"
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -94,7 +96,7 @@ export default function LoginPage() {
         </div>
         {error && <Alert variant="error">{error}</Alert>}
         <Button type="submit" className="h-10 w-full" disabled={loading}>
-          {loading ? "Connexion..." : "Se connecter"}
+          {loading ? t("auth.login.submit.loading") : t("auth.login.submit")}
         </Button>
       </form>
 
@@ -104,8 +106,7 @@ export default function LoginPage() {
           passe - cf. faille corrigee ou /api/auth/register etait accessible sans
           authentification. */}
       <p className="text-center text-sm text-muted-foreground">
-        Pas encore de compte ? Contactez l'administration de votre etablissement pour vous
-        inscrire.
+        {t("auth.login.noAccount")}
       </p>
     </AuthLayout>
   );

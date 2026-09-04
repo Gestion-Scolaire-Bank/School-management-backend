@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/EmptyState";
 import { PRESENCE_STATUS, statusOf } from "@/lib/status";
+import { useI18n } from "@/lib/i18n";
 
 function formatDateTime(iso) {
   if (!iso) return "-";
@@ -24,6 +25,7 @@ function formatDateTime(iso) {
 // Gateway depuis le JWT) : plus besoin de connaitre l'identifiant UUID de son enfant, on
 // choisit par nom (cf. chantier de coherence - point n.6).
 export default function ChildPage() {
+  const { t } = useI18n();
   const [children, setChildren] = useState(null);
   const [childrenError, setChildrenError] = useState(null);
   const [loadingChildren, setLoadingChildren] = useState(true);
@@ -48,12 +50,13 @@ export default function ChildPage() {
     apiClient
       .get("/api/v1/registrations/children")
       .then((res) => setChildren(res.data || []))
-      .catch(() => setChildrenError("Impossible de charger la liste de vos enfants."))
+      .catch(() => setChildrenError(t("child.list.error")))
       .finally(() => setLoadingChildren(false));
     apiClient
       .get("/api/v1/admin/classes")
       .then((res) => setClasses(res.data || []))
       .catch(() => setClasses([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Les URLs d'objet crees pour la carte/le bulletin doivent etre liberees pour eviter les
@@ -87,7 +90,7 @@ export default function ChildPage() {
       });
       setCardUrl(URL.createObjectURL(data));
     } catch {
-      setCardError("Aucune carte scolaire trouvee pour cet enfant.");
+      setCardError(t("child.card.error"));
       setCardUrl(null);
     } finally {
       setLoadingCard(false);
@@ -106,7 +109,7 @@ export default function ChildPage() {
       });
       setReportUrl(URL.createObjectURL(data));
     } catch {
-      setReportError("Aucun bulletin disponible pour cet enfant/periode.");
+      setReportError(t("child.report.error"));
       setReportUrl(null);
     } finally {
       setLoadingReport(false);
@@ -120,7 +123,7 @@ export default function ChildPage() {
       const { data } = await apiClient.get(`/api/v1/presence/student/${encodeURIComponent(id)}`);
       setPresence(data);
     } catch {
-      setPresenceError("Impossible de charger la presence.");
+      setPresenceError(t("child.presence.error"));
       setPresence(null);
     } finally {
       setLoadingPresence(false);
@@ -132,28 +135,24 @@ export default function ChildPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold">Suivi de l'enfant</h2>
+        <h2 className="text-2xl font-semibold">{t("child.title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Carte scolaire, bulletins et presence.
+          {t("child.subtitle")}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Mes enfants</CardTitle>
-          <CardDescription>Selectionnez un enfant pour voir son suivi.</CardDescription>
+          <CardTitle className="text-base">{t("child.list.title")}</CardTitle>
+          <CardDescription>{t("child.list.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
-          {loadingChildren && <p className="text-sm text-muted-foreground">Chargement...</p>}
+          {loadingChildren && <p className="text-sm text-muted-foreground">{t("child.loading")}</p>}
           {childrenError && <Alert variant="error">{childrenError}</Alert>}
           {children && children.length === 0 && (
             <EmptyState
               icon={GraduationCap}
-              message={
-                "Aucun enfant n'est associe a l'adresse email de votre compte. Si votre enfant est bien inscrit, " +
-                "contactez l'administration de l'etablissement pour verifier l'adresse email renseignee lors de " +
-                "l'inscription."
-              }
+              message={t("child.list.empty")}
             />
           )}
           {children && children.length > 0 && (
@@ -175,7 +174,7 @@ export default function ChildPage() {
                     <p className="text-sm font-medium">
                       {child.firstName} {child.lastName}
                     </p>
-                    <p className="text-xs text-muted-foreground">{className(child.classId) || "Classe non affectee"}</p>
+                    <p className="text-xs text-muted-foreground">{className(child.classId) || t("child.noClass")}</p>
                   </div>
                 </button>
               ))}
@@ -189,16 +188,16 @@ export default function ChildPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Carte scolaire - {activeChild.firstName} {activeChild.lastName}
+                {t("child.card.title", { name: `${activeChild.firstName} ${activeChild.lastName}` })}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingCard && <p className="text-sm text-muted-foreground">Chargement...</p>}
+              {loadingCard && <p className="text-sm text-muted-foreground">{t("child.loading")}</p>}
               {cardError && <Alert variant="error">{cardError}</Alert>}
               {cardUrl && (
                 <img
                   src={cardUrl}
-                  alt={`Carte scolaire de ${activeChild.firstName} ${activeChild.lastName}`}
+                  alt={t("child.card.alt", { name: `${activeChild.firstName} ${activeChild.lastName}` })}
                   className="max-w-full rounded-lg border border-border"
                 />
               )}
@@ -207,22 +206,22 @@ export default function ChildPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Bulletin</CardTitle>
-              <CardDescription>Laissez la periode vide pour le bulletin le plus recent.</CardDescription>
+              <CardTitle className="text-base">{t("child.report.title")}</CardTitle>
+              <CardDescription>{t("child.report.subtitle")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <form onSubmit={loadReportCard} className="flex flex-wrap items-end gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="reportPeriod">Periode</Label>
+                  <Label htmlFor="reportPeriod">{t("child.report.period")}</Label>
                   <Input
                     id="reportPeriod"
-                    placeholder="ex. Trimestre1"
+                    placeholder={t("child.report.period.placeholder")}
                     value={reportPeriod}
                     onChange={(e) => setReportPeriod(e.target.value)}
                   />
                 </div>
                 <Button type="submit" disabled={loadingReport}>
-                  {loadingReport ? "Chargement..." : "Voir le bulletin"}
+                  {loadingReport ? t("child.loading") : t("child.report.submit")}
                 </Button>
               </form>
               {reportError && <Alert variant="error">{reportError}</Alert>}
@@ -233,7 +232,7 @@ export default function ChildPage() {
                   rel="noreferrer"
                   className="text-sm text-primary underline-offset-4 hover:underline"
                 >
-                  Ouvrir le bulletin PDF
+                  {t("child.report.open")}
                 </a>
               )}
             </CardContent>
@@ -241,22 +240,22 @@ export default function ChildPage() {
 
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-base">Presence</CardTitle>
+              <CardTitle className="text-base">{t("child.presence.title")}</CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingPresence && <p className="text-sm text-muted-foreground">Chargement...</p>}
+              {loadingPresence && <p className="text-sm text-muted-foreground">{t("child.loading")}</p>}
               {presenceError && <Alert variant="error">{presenceError}</Alert>}
               {presence && presence.length === 0 && (
-                <EmptyState icon={ClipboardCheck} message="Aucun enregistrement de presence." />
+                <EmptyState icon={ClipboardCheck} message={t("child.presence.empty")} />
               )}
               {presence && presence.length > 0 && (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Classe</TableHead>
-                      <TableHead>Entree</TableHead>
-                      <TableHead>Sortie</TableHead>
-                      <TableHead>Statut</TableHead>
+                      <TableHead>{t("child.table.class")}</TableHead>
+                      <TableHead>{t("child.table.checkIn")}</TableHead>
+                      <TableHead>{t("child.table.checkOut")}</TableHead>
+                      <TableHead>{t("child.table.status")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

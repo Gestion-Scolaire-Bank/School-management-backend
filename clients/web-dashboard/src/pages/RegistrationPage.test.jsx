@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RegistrationPage from "./RegistrationPage";
 import apiClient from "../api/client";
@@ -22,7 +22,21 @@ function mockReferenceData() {
 }
 
 async function selectOption(user, triggerId, optionName) {
-  await user.click(document.getElementById(triggerId));
+  const trigger = document.getElementById(triggerId);
+  // native <select> (used for the school/class fields): wait for async options then fire change
+  if (trigger && trigger.tagName === "SELECT") {
+    await waitFor(() => {
+      const opts = Array.from(trigger.querySelectorAll("option"));
+      const found = opts.some((o) => (optionName instanceof RegExp ? optionName.test(o.textContent || "") : o.textContent === optionName));
+      if (!found) throw new Error("option not yet loaded");
+    });
+    const option = Array.from(trigger.querySelectorAll("option")).find((o) =>
+      optionName instanceof RegExp ? optionName.test(o.textContent || "") : o.textContent === optionName
+    );
+    fireEvent.change(trigger, { target: { value: option ? option.value : "" } });
+    return;
+  }
+  await user.click(trigger);
   await user.click(await screen.findByRole("option", { name: optionName }));
 }
 
