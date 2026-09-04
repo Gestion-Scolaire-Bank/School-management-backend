@@ -10,6 +10,7 @@ from app.models.metric_event import MetricEvent
 TOPIC_PAYMENT_COMPLETED = "sm.payment.completed"
 TOPIC_PRESENCE_RECORDED = "sm.presence.recorded"
 TOPIC_REPORTCARD_GENERATED = "sm.reportcard.generated"
+TOPIC_ESTABLISHMENT_CREATED = "sm.admin.establishment.created"
 
 
 def _load_events(db: Session, topic: str, establishment_id: Optional[str] = None) -> pd.DataFrame:
@@ -66,9 +67,10 @@ def compute_global_statistics(db: Session) -> dict:
     payments = _load_events(db, TOPIC_PAYMENT_COMPLETED)
     presence = _load_events(db, TOPIC_PRESENCE_RECORDED)
     reportcards = _load_events(db, TOPIC_REPORTCARD_GENERATED)
+    establishment_events = _load_events(db, TOPIC_ESTABLISHMENT_CREATED)
 
     establishment_ids = set()
-    for df in (payments, presence, reportcards):
+    for df in (payments, presence, reportcards, establishment_events):
         for column in ("establishmentId", "etablissementId"):
             if column in df.columns:
                 establishment_ids.update(df[column].dropna().unique().tolist())

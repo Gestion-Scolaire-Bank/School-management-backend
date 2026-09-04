@@ -33,6 +33,7 @@ schoolmanage:
       class-created: sm.admin.class.created
       teacher-assignment-created: sm.admin.teacher_assignment.created
       fee-schedule-created: sm.admin.fee_schedule.created
+      establishment-created: sm.admin.establishment.created
 
 eureka:
   client:

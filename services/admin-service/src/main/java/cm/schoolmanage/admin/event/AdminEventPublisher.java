@@ -24,6 +24,7 @@ public class AdminEventPublisher {
     private final String classCreatedTopic;
     private final String teacherAssignmentCreatedTopic;
     private final String feeScheduleCreatedTopic;
+    private final String establishmentCreatedTopic;
 
     public AdminEventPublisher(KafkaTemplate<String, String> kafkaTemplate,
                                 ObjectMapper objectMapper,
@@ -31,12 +32,15 @@ public class AdminEventPublisher {
                                 @Value("${schoolmanage.kafka.topic.teacher-assignment-created}")
                                 String teacherAssignmentCreatedTopic,
                                 @Value("${schoolmanage.kafka.topic.fee-schedule-created}")
-                                String feeScheduleCreatedTopic) {
+                                String feeScheduleCreatedTopic,
+                                @Value("${schoolmanage.kafka.topic.establishment-created}")
+                                String establishmentCreatedTopic) {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
         this.classCreatedTopic = classCreatedTopic;
         this.teacherAssignmentCreatedTopic = teacherAssignmentCreatedTopic;
         this.feeScheduleCreatedTopic = feeScheduleCreatedTopic;
+        this.establishmentCreatedTopic = establishmentCreatedTopic;
     }
 
     public void publishClassCreated(Map<String, Object> payload) {
@@ -49,6 +53,10 @@ public class AdminEventPublisher {
 
     public void publishFeeScheduleCreated(Map<String, Object> payload) {
         publish(feeScheduleCreatedTopic, payload);
+    }
+
+    public void publishEstablishmentCreated(Map<String, Object> payload) {
+        publish(establishmentCreatedTopic, payload);
     }
 
     private void publish(String topic, Map<String, Object> payload) {

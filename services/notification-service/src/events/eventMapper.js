@@ -12,6 +12,7 @@ const KNOWN_TOPICS = [
   'sm.presence.absence.detected',
   'sm.userstatus.changed',
   'sm.schoolid.generated',
+  'sm.admin.establishment.created',
 ];
 
 // "recipientKind" indique quel annuaire interroger pour resoudre recipientUserId en adresse
@@ -121,6 +122,17 @@ function mapEventToNotification(topic, payload) {
         type: 'SCHOOLID_GENERATED',
         subject: "Carte d'identite scolaire generee",
         body: `Votre carte d'identite scolaire est disponible : ${payload.idCardUrl || ''}`,
+      };
+
+    case 'sm.admin.establishment.created':
+      if (!payload.establishmentId) return null;
+      return {
+        recipientUserId: payload.establishmentId,
+        recipientKind: 'USER',
+        channel: 'EMAIL',
+        type: 'ESTABLISHMENT_CREATED',
+        subject: 'Nouvel etablissement cree',
+        body: `Un nouvel etablissement "${payload.name}" a ete cree. Code etablissement : ${payload.establishmentId}`,
       };
 
     default:

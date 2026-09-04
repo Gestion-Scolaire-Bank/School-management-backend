@@ -5,7 +5,7 @@ from typing import Optional
 
 from aiokafka import AIOKafkaConsumer
 
-from app.api.routes import _generate_card
+from app.api.routes import _generate_card, _generate_certificate
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.events import get_event_publisher
@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 # Consumer sm.registration.student.enrolled -> generation automatique de la carte d'identite
 # (cf. README - Communications entrantes, UC7).
 TOPIC_STUDENT_ENROLLED = "sm.registration.student.enrolled"
+
+# Nouveau topic : generation de certificat de fin d'etudes
+TOPIC_CERTIFICATE_GENERATED = "sm.reportcard.generated"
 
 
 def handle_student_enrolled(payload: dict, db, publisher) -> Optional[object]:
@@ -35,9 +38,49 @@ def handle_student_enrolled(payload: dict, db, publisher) -> Optional[object]:
     return card
 
 
+def handle_certificate_generated(payload: dict, db, publisher) -> Optional[object]:
+    student_id = payload.get("studentId")
+    if not student_id:
+        logger.warning("Evenement %s ignore (studentId manquant)", TOPIC_CERTIFICATE_GENERATED)
+        return None
+
+    # Generate certificate similar to school ID card but with academic information
+    from app.models.Certificate import Certificate  # will be imported dynamically
+    from datetime import datetime, timezone
+    import uuid
+
+    certificate = Certificate(
+        id=str(uuid.uuid4()),
+        student_id=student_id,
+        establishment_id=payload.get("establishmentId", ""),
+        student_name=payload.get("fullName", student_id),
+        certificate_type=payload.get("type", "Graduation"),
+        issued_at=datetime.now(timezone.utc).isoformat(),
+        signed_by="School Administration",
+        gpa=payload.get("gpa"),
+        subjects=payload.get("subjects", []),
+        credential_id=payload.get("credentialId", ""),
+    )
+
+    # Publish certificate generated event
+    publisher.publish(TOPIC_CERTIFICATE_GENERATED, {
+        "studentId": student_id,
+        "establishmentId": payload.get("establishmentId", ""),
+        "fullName": payload.get("fullName", student_id),
+        "type": payload.get("type", "Graduation"),
+        "gpa": payload.get("gpa"),
+        "subjects": payload.get("subjects", []),
+        "credentialId": payload.get("credentialId", ""),
+    })
+
+    logger.info("Certificat genere automatiquement pour l'eleve %s", student_id)
+    return certificate
+
+
 async def _consume_forever() -> None:
     consumer = AIOKafkaConsumer(
         TOPIC_STUDENT_ENROLLED,
+        TOPIC_CERTIFICATE_GENERATED,
         bootstrap_servers=settings.kafka_broker,
         group_id="schoolid-service-group",
         enable_auto_commit=True,
@@ -53,7 +96,10 @@ async def _consume_forever() -> None:
 
             db = SessionLocal()
             try:
-                handle_student_enrolled(payload, db, get_event_publisher())
+                if message.topic == TOPIC_STUDENT_ENROLLED:
+                    handle_student_enrolled(payload, db, get_event_publisher())
+                elif message.topic == TOPIC_CERTIFICATE_GENERATED:
+                    handle_certificate_generated(payload, db, get_event_publisher())
             finally:
                 db.close()
     finally:

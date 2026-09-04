@@ -13,7 +13,7 @@ from app.models.metric_event import MetricEvent
 logger = logging.getLogger(__name__)
 
 # Consumer multi-topics (cf. README - Communications entrantes).
-TOPICS = ["sm.payment.completed", "sm.presence.recorded", "sm.reportcard.generated"]
+TOPICS = ["sm.payment.completed", "sm.presence.recorded", "sm.reportcard.generated", "sm.admin.establishment.created"]
 
 
 def store_event(db: Session, topic: str, raw_value: bytes) -> Optional[MetricEvent]:
@@ -25,9 +25,14 @@ def store_event(db: Session, topic: str, raw_value: bytes) -> Optional[MetricEve
 
     # sm.payment.completed utilise "etablissementId" (francais, cf. README payment-service) ;
     # les autres topics utilisent "establishmentId" - on accepte les deux.
+    # sm.admin.establishment.created utilise aussi "establishmentId"
+    if topic == "sm.admin.establishment.created":
+        establishment_id = payload.get("establishmentId") or payload.get("id")
+    else:
+        establishment_id = payload.get("establishmentId") or payload.get("etablissementId")
     event = MetricEvent(
         topic=topic,
-        establishment_id=payload.get("establishmentId") or payload.get("etablissementId"),
+        establishment_id=establishment_id,
         payload=json.dumps(payload),
     )
     db.add(event)

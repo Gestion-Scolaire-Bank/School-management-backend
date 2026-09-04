@@ -2,12 +2,13 @@ package cm.schoolmanage.admin.service;
 
 import cm.schoolmanage.admin.domain.Establishment;
 import cm.schoolmanage.admin.dto.CreateEstablishmentRequest;
+import cm.schoolmanage.admin.event.AdminEventPublisher;
 import cm.schoolmanage.admin.exception.ResourceNotFoundException;
 import cm.schoolmanage.admin.repository.EstablishmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -15,6 +16,7 @@ import java.util.UUID;
 public class EstablishmentService {
 
     private final EstablishmentRepository establishmentRepository;
+    private final AdminEventPublisher adminEventPublisher;
 
     public Establishment create(CreateEstablishmentRequest request) {
         Establishment establishment = Establishment.builder()
@@ -29,7 +31,13 @@ public class EstablishmentService {
                 .slogan(request.getSlogan())
                 .description(request.getDescription())
                 .build();
-        return establishmentRepository.save(establishment);
+        establishment = establishmentRepository.save(establishment);
+        adminEventPublisher.publishEstablishmentCreated(Map.of(
+                "establishmentId", establishment.getId().toString(),
+                "name", establishment.getName(),
+                "currency", establishment.getCurrency()
+        ));
+        return establishment;
     }
 
     public List<Establishment> findAll() {
