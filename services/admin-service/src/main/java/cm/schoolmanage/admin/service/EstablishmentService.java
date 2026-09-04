@@ -52,4 +52,15 @@ public class EstablishmentService {
         return establishmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Etablissement introuvable : " + id));
     }
+
+    public void deleteById(UUID id) {
+        Establishment establishment = getById(id);
+        String establishmentId = establishment.getId().toString();
+        String name = establishment.getName();
+        establishmentRepository.deleteById(id);
+        adminEventPublisher.publishEstablishmentDeleted(Map.of(
+                "establishmentId", establishmentId,
+                "name", name
+        ));
+    }
 }

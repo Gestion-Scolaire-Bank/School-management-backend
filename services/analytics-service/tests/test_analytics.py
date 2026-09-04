@@ -1,7 +1,10 @@
 import json
 
 import pytest
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # noqa: F401 # starlette.testclient is deprecated
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, message="starlette.testclient is deprecated")
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -51,7 +54,6 @@ def client(session_factory, cache):
 
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_cache] = lambda: cache
-
     # Pas de "with" ici : on evite de declencher le lifespan de l'app, qui demarrerait le
     # consumer Kafka (non disponible en test) et appellerait Base.metadata.create_all sur le
     # vrai moteur Postgres.

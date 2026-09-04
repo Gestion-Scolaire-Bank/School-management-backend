@@ -27,6 +27,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -102,6 +103,16 @@ public class AdminController {
     @GetMapping("/api/v1/admin/establishments/{id}")
     public ResponseEntity<EstablishmentResponse> consulterUnEtablissement(@PathVariable UUID id) {
         return ResponseEntity.ok(EstablishmentResponse.from(establishmentService.getById(id)));
+    }
+
+    /**
+     * Roles autorises : Admin Systeme
+     * Supprimer un etablissement de la plateforme.
+     */
+    @DeleteMapping("/api/v1/admin/establishments/{id}")
+    public ResponseEntity<String> supprimerUnEtablissement(@PathVariable UUID id) {
+        establishmentService.deleteById(id);
+        return ResponseEntity.ok("Etablissement supprime avec succs");
     }
 
     /**

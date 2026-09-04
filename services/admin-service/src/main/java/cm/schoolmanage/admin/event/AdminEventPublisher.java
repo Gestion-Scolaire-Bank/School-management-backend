@@ -25,22 +25,26 @@ public class AdminEventPublisher {
     private final String teacherAssignmentCreatedTopic;
     private final String feeScheduleCreatedTopic;
     private final String establishmentCreatedTopic;
+    private final String establishmentDeletedTopic;
 
-    public AdminEventPublisher(KafkaTemplate<String, String> kafkaTemplate,
-                                ObjectMapper objectMapper,
-                                @Value("${schoolmanage.kafka.topic.class-created}") String classCreatedTopic,
-                                @Value("${schoolmanage.kafka.topic.teacher-assignment-created}")
-                                String teacherAssignmentCreatedTopic,
-                                @Value("${schoolmanage.kafka.topic.fee-schedule-created}")
-                                String feeScheduleCreatedTopic,
-                                @Value("${schoolmanage.kafka.topic.establishment-created}")
-                                String establishmentCreatedTopic) {
+public AdminEventPublisher(KafkaTemplate<String, String> kafkaTemplate,
+                            ObjectMapper objectMapper,
+                            @Value("${schoolmanage.kafka.topic.class-created}") String classCreatedTopic,
+                            @Value("${schoolmanage.kafka.topic.teacher-assignment-created}")
+                            String teacherAssignmentCreatedTopic,
+                            @Value("${schoolmanage.kafka.topic.fee-schedule-created}")
+                            String feeScheduleCreatedTopic,
+                            @Value("${schoolmanage.kafka.topic.establishment-created}")
+                            String establishmentCreatedTopic,
+                            @Value("${schoolmanage.kafka.topic.establishment-deleted}")
+                            String establishmentDeletedTopic) {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
         this.classCreatedTopic = classCreatedTopic;
         this.teacherAssignmentCreatedTopic = teacherAssignmentCreatedTopic;
         this.feeScheduleCreatedTopic = feeScheduleCreatedTopic;
         this.establishmentCreatedTopic = establishmentCreatedTopic;
+        this.establishmentDeletedTopic = establishmentDeletedTopic;
     }
 
     public void publishClassCreated(Map<String, Object> payload) {
@@ -57,6 +61,10 @@ public class AdminEventPublisher {
 
     public void publishEstablishmentCreated(Map<String, Object> payload) {
         publish(establishmentCreatedTopic, payload);
+    }
+
+    public void publishEstablishmentDeleted(Map<String, Object> payload) {
+        publish(establishmentDeletedTopic, payload);
     }
 
     private void publish(String topic, Map<String, Object> payload) {
